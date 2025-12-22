@@ -1,3 +1,16 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Blindado: {path}")
+
+# --- OCR SERVICE BLINDADO PARA ANDROID 14 ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -208,9 +221,9 @@ class OcrService : Service() {
 
     private fun processExtractedText(rawText: String) {
         // Regex robustas com escapes duplos para o Python nao quebrar
-        val pricePattern = Pattern.compile("R\\$\\s*([0-9]+[.,][0-9]{2})")
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*km", Pattern.CASE_INSENSITIVE)
-        val timePattern = Pattern.compile("([0-9]+)\\s*min", Pattern.CASE_INSENSITIVE)
+        val pricePattern = Pattern.compile("R\\\\$\\\\s*([0-9]+[.,][0-9]{2})")
+        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*km", Pattern.CASE_INSENSITIVE)
+        val timePattern = Pattern.compile("([0-9]+)\\\\s*min", Pattern.CASE_INSENSITIVE)
 
         var price = 0.0
         var dist = 0.0
@@ -236,7 +249,7 @@ class OcrService : Service() {
             val valPerHour = if (time > 0) (price / time) * 60 else 0.0
             
             // Formatacao com escape duplo de nova linha
-            String.format("R$ %.2f | %.1f km | %.0f min\nKm: R$ %.2f\nHora: R$ %.2f", 
+            String.format("R$ %.2f | %.1f km | %.0f min\\nKm: R$ %.2f\\nHora: R$ %.2f", 
                 price, dist, time, valPerKm, valPerHour)
         } else {
             "Buscando... (Preço/Km/Min)"
@@ -278,3 +291,15 @@ class OcrService : Service() {
         } catch (e: Exception) {}
     }
 }
+"""
+
+print("--- Aplicando Correção Crítica para Android 14 ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nArquivo blindado.")
+print("Execute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Crash Android 14 ServiceType'")
+print("3. git push")
+
+
