@@ -71,7 +71,7 @@ class OcrService : Service() {
         
         overlayView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#E6000000")) // Fundo preto 90% opaco
+            setBackgroundColor(Color.parseColor("#E6000000"))
             setPadding(30, 30, 30, 30)
         }
 
@@ -124,7 +124,7 @@ class OcrService : Service() {
         screenHeight = metrics.heightPixels
         screenDensity = metrics.densityDpi
 
-        // Configura o ImageReader para capturar a tela
+        // ImageReader com tamanho fixo seguro ou nativo
         imageReader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2)
         
         virtualDisplay = mediaProjection?.createVirtualDisplay(
@@ -148,7 +148,6 @@ class OcrService : Service() {
                 try {
                     val image = imageReader?.acquireLatestImage()
                     if (image != null) {
-                        // Converter ImageReader para Bitmap
                         val planes = image.planes
                         val buffer = planes[0].buffer
                         val pixelStride = planes[0].pixelStride
@@ -163,7 +162,6 @@ class OcrService : Service() {
                         bitmap.copyPixelsFromBuffer(buffer)
                         image.close()
 
-                        // Processar com ML Kit
                         val inputImage = InputImage.fromBitmap(bitmap, 0)
                         
                         recognizer.process(inputImage)
@@ -174,7 +172,6 @@ class OcrService : Service() {
                                 updateStatus("Erro OCR: ${e.message}")
                             }
                     } else {
-                        // Nenhum frame novo disponivel, apenas atualiza status
                         withContext(Dispatchers.Main) {
                             statusText.text = "Aguardando tela..."
                         }
@@ -183,21 +180,16 @@ class OcrService : Service() {
                     Log.e("OCR", "Erro no loop", e)
                 }
 
-                // Pausa de 5 segundos para economizar bateria e CPU
-                // Durante este tempo, o ImageReader vai descartar frames antigos
                 delay(5000)
             }
         }
     }
 
     private fun processExtractedText(rawText: String) {
-        // Regex para encontrar padrões
-        // Preço: R$ 10,50 ou 10.50
-        val pricePattern = Pattern.compile("R\\$\s*([0-9]+[.,][0-9]{2})")
-        // Distancia: 12.5 km
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\s*km", Pattern.CASE_INSENSITIVE)
-        // Tempo: 15 min
-        val timePattern = Pattern.compile("([0-9]+)\s*min", Pattern.CASE_INSENSITIVE)
+        // Regex corrigidas com escape duplo para Python escrever corretamente no Kotlin
+        val pricePattern = Pattern.compile("R\\$\\s*([0-9]+[.,][0-9]{2})")
+        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*km", Pattern.CASE_INSENSITIVE)
+        val timePattern = Pattern.compile("([0-9]+)\\s*min", Pattern.CASE_INSENSITIVE)
 
         var price = 0.0
         var dist = 0.0
@@ -218,17 +210,15 @@ class OcrService : Service() {
             time = timeMatcher.group(1)?.toDoubleOrNull() ?: 0.0
         }
 
-        // Calcular Ganhos
+        // String Format corrigido com escape duplo de nova linha
         val resultString = if (price > 0 && (dist > 0 || time > 0)) {
             val valPerKm = if (dist > 0) price / dist else 0.0
             val valPerHour = if (time > 0) (price / time) * 60 else 0.0
             
-            String.format("R$ %.2f | %.1f km | %.0f min
-Km: R$ %.2f
-Hora: R$ %.2f", 
+            String.format("R$ %.2f | %.1f km | %.0f min\nKm: R$ %.2f\nHora: R$ %.2f", 
                 price, dist, time, valPerKm, valPerHour)
         } else {
-            "Buscando valores..."
+            "Buscando..."
         }
 
         updateUI(resultString)
@@ -245,7 +235,6 @@ Hora: R$ %.2f",
             statusText.text = "Lendo (Próx em 5s)..."
             resultText.text = result
             
-            // Muda cor se for bom (exemplo simples: > R$2/km)
             if (result.contains("Km: R$") && result.contains("Hora: R$")) {
                  resultText.setTextColor(Color.GREEN)
             } else {
