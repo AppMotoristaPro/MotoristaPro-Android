@@ -1,3 +1,16 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- OCR SERVICE COM DEBUG VISUAL E REGEX MELHORADA ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -222,15 +235,15 @@ class OcrService : Service() {
 
     private fun processExtractedText(rawText: String) {
         // Normaliza o texto para facilitar Regex (remove quebras de linha estranhas)
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ")
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ")
         
         // Regex super permissiva
         // Aceita "R$", "RS", "$", com ou sem espaço
-        val pricePattern = Pattern.compile("(R\\$|RS|\\$)\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
+        val pricePattern = Pattern.compile("(R\\\\$|RS|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
         // Aceita "km", "xm", com espaço ou numeros colados
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
+        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
         // Aceita "min"
-        val timePattern = Pattern.compile("([0-9]+)\\s*(min)", Pattern.CASE_INSENSITIVE)
+        val timePattern = Pattern.compile("([0-9]+)\\\\s*(min)", Pattern.CASE_INSENSITIVE)
 
         var price = 0.0
         var dist = 0.0
@@ -256,14 +269,14 @@ class OcrService : Service() {
             val valPerKm = if (dist > 0) price / dist else 0.0
             val valPerHour = if (time > 0) (price / time) * 60 else 0.0
             
-            val finalRes = String.format("R$ %.2f | %.1f km | %.0f min\nKm: R$ %.2f | Hora: R$ %.2f", 
+            val finalRes = String.format("R$ %.2f | %.1f km | %.0f min\\nKm: R$ %.2f | Hora: R$ %.2f", 
                 price, dist, time, valPerKm, valPerHour)
             
             updateUI(finalRes, true)
         } else {
             // Mostra trecho do texto lido para debug
             val debugSample = if (cleanText.length > 20) cleanText.substring(0, 20) + "..." else cleanText
-            updateUI("Nada detectado.\nLido: $debugSample", false)
+            updateUI("Nada detectado.\\nLido: $debugSample", false)
         }
     }
 
@@ -295,3 +308,14 @@ class OcrService : Service() {
         try { recognizer.close() } catch (e: Exception) {}
     }
 }
+"""
+
+print("--- Atualizando OCR com Debug Visual ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Debug OCR e Buffer'")
+print("3. git push")
+
+
