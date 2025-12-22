@@ -1,3 +1,8 @@
+import os
+
+# Conteúdo corrigido do workflow (.github/workflows/android.yml)
+# Adicionamos o passo "Setup Gradle" que força a versão 8.4
+workflow_content = """
 name: Android Build
 
 on:
@@ -35,3 +40,19 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+"""
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+print("--- Aplicando Correção do Gradle Version ---")
+create_file(".github/workflows/android.yml", workflow_content)
+print("Correção aplicada com sucesso.")
+
+
