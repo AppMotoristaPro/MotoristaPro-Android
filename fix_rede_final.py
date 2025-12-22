@@ -1,3 +1,16 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- 1. WORKFLOW BLINDADO (Curl + Retries) ---
+workflow_content = """
 name: Android Build
 
 on:
@@ -38,3 +51,23 @@ jobs:
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+"""
+
+# --- 2. GARANTIA DO ANDROIDX (Caso tenha se perdido) ---
+gradle_properties_content = """
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.enableJetifier=true
+"""
+
+print("--- Aplicando Fix de Rede e Dependências ---")
+create_file(".github/workflows/android.yml", workflow_content)
+create_file("gradle.properties", gradle_properties_content)
+
+print("\nArquivos corrigidos.")
+print("Execute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Download Robusto e AndroidX'")
+print("3. git push")
+
+
