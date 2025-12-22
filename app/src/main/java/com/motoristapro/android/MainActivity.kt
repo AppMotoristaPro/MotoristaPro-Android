@@ -1,52 +1,88 @@
 package com.motoristapro.android
 
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Bundle
-import android.webkit.WebSettings
+import android.provider.Settings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private val REQUEST_OVERLAY = 101
+    private val REQUEST_MEDIA_PROJECTION = 102
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inicializa a WebView
+        // Container Raiz
+        val root = FrameLayout(this)
+        setContentView(root)
+
+        // WebView (Fundo)
         webView = WebView(this)
-        setContentView(webView)
-
-        // Configurações da WebView para Aplicações Modernas (React/SPA)
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true // Necessário para persistência de dados (localStorage)
-            databaseEnabled = true
-            cacheMode = WebSettings.LOAD_DEFAULT
-            
-            // Ajustes de viewport para mobile
-            useWideViewPort = true
-            loadWithOverviewMode = true
-        }
-
-        // Garante que links abram dentro do app, não no Chrome externo
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                view?.loadUrl(url ?: return false)
-                return true
-            }
-        }
-
-        // URL Alvo
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.webViewClient = WebViewClient()
         webView.loadUrl("https://motorista-pro-app.onrender.com")
+        root.addView(webView)
+
+        // Botão Flutuante para Iniciar o OCR (Frente)
+        val btnStart = Button(this)
+        btnStart.text = "ATIVAR LEITURA"
+        val params = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        )
+        params.gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+        params.setMargins(0, 0, 50, 150)
+        btnStart.layoutParams = params
+        root.addView(btnStart)
+
+        btnStart.setOnClickListener {
+            checkPermissionsAndStart()
+        }
     }
 
-    // Comportamento do botão Voltar (Back)
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+    private fun checkPermissionsAndStart() {
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            startActivityForResult(intent, REQUEST_OVERLAY)
+            Toast.makeText(this, "Permita a sobreposição!", Toast.LENGTH_LONG).show()
+            return
         }
+        
+        startProjectionRequest()
+    }
+
+    private fun startProjectionRequest() {
+        val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        startActivityForResult(mpManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == REQUEST_MEDIA_PROJECTION) {
+            if (resultCode == RESULT_OK && data != null) {
+                val serviceIntent = Intent(this, OcrService::class.java).apply {
+                    putExtra("RESULT_CODE", resultCode)
+                    putExtra("RESULT_DATA", data)
+                }
+                startForegroundService(serviceIntent)
+            } else {
+                Toast.makeText(this, "Permissão de tela negada!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    override fun onBackPressed() {
+        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
