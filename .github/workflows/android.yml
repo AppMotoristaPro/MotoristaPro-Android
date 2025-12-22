@@ -20,12 +20,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # CORREÇÃO: Forçar o uso do Gradle 8.4 (compatível com AGP 8.2.0)
-    # Isso evita o erro com o Gradle 9.x padrão do servidor
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: '8.4'
+    # SOLUÇÃO MANUAL: Baixa e configura o Gradle 8.5 diretamente
+    # Isso evita erros 503 da Action setup-gradle e incompatibilidade de versão
+    - name: Install Gradle 8.5
+      run: |
+        wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip -P /tmp
+        sudo unzip -q -d /opt/gradle /tmp/gradle-8.5-bin.zip
+        echo "GRADLE_HOME=/opt/gradle/gradle-8.5" >> $GITHUB_ENV
+        echo "/opt/gradle/gradle-8.5/bin" >> $GITHUB_PATH
 
     - name: Build with Gradle
       run: gradle assembleDebug --no-daemon --stacktrace
