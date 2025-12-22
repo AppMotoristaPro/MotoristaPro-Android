@@ -1,3 +1,16 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Corrigido: {path}")
+
+# --- OCR SERVICE CORRIGIDO ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -138,3 +151,15 @@ class OcrService : Service() {
         mediaProjection?.stop()
     }
 }
+"""
+
+print("--- Corrigindo erro de digitação no OcrService ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nArquivo corrigido.")
+print("Execute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Typo OcrService'")
+print("3. git push")
+
+
