@@ -1,3 +1,15 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- OCR SERVICE (Lógica de Dupla Variável e Reset) ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -261,23 +273,23 @@ class OcrService : Service() {
         robotDist = 0.0
         robotTime = 0.0
 
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ").lowercase()
         
         // 2. Extração (Regex) -> Popula Robot Variables
-        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
+        val pm = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
         while (pm.find()) { val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > robotPrice) robotPrice = v }
         
-        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)").matcher(cleanText)
+        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)").matcher(cleanText)
         while (dm.find()) { 
             var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (dm.group(2) == "m") d /= 1000.0
             if (d < 200) robotDist += d 
         }
         
-        val tm = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?").matcher(cleanText)
+        val tm = Pattern.compile("([0-9]+)\\\\s*h\\\\s*(?:([0-9]+)\\\\s*min)?").matcher(cleanText)
         while (tm.find()) { robotTime += ((tm.group(1)?.toIntOrNull()?:0)*60) + (tm.group(2)?.toIntOrNull()?:0) }
         if (robotTime == 0.0) { 
-            val mm = Pattern.compile("([0-9]+)\\s*min").matcher(cleanText)
+            val mm = Pattern.compile("([0-9]+)\\\\s*min").matcher(cleanText)
             while (mm.find()) robotTime += mm.group(1)?.toDoubleOrNull() ?: 0.0 
         }
 
@@ -344,3 +356,14 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+print("--- Aplicando Lógica Robô vs Janela V4 ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Strict Robot-Window Compare Logic'")
+print("3. git push")
+
+
