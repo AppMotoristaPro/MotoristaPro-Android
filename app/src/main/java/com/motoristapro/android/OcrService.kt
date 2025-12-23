@@ -30,17 +30,16 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.*
 import java.util.regex.Pattern
-import kotlin.math.abs
 
 class OcrService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var rootLayout: LinearLayout
     
-    // UI Elements
-    private lateinit var tvValorGrande: TextView
-    private lateinit var tvDadosSoma: TextView
-    private lateinit var tvCalculos: TextView
+    // Elementos da UI
+    private lateinit var tvValorTopo: TextView      // R$ 20,00
+    private lateinit var tvDadosMeio: TextView      // 10 km • 10 min
+    private lateinit var tvResultadosBaixo: TextView // R$ 2,00/km • R$ 120,00/h
 
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -48,15 +47,10 @@ class OcrService : Service() {
     
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val scope = CoroutineScope(Dispatchers.Main + Job())
-    private var hideJob: Job? = null
     
     private var isRunning = false
     private var screenWidth = 0
     private var screenHeight = 0
-    
-    // Memória da última corrida mostrada
-    private var lastShownPrice = 0.0
-    private var lastShownDist = 0.0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -64,7 +58,7 @@ class OcrService : Service() {
         super.onCreate()
         try {
             startForegroundServiceCompat()
-            setupBannerOverlay()
+            setupHierarchicalOverlay()
         } catch (e: Exception) {
             Log.e("OCR", "Erro Fatal", e)
         }
@@ -77,7 +71,7 @@ class OcrService : Service() {
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Motorista Pro")
-            .setContentText("Monitorando em segundo plano...")
+            .setContentText("Monitorando...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
             .build()
@@ -89,84 +83,82 @@ class OcrService : Service() {
         }
     }
 
-    private fun setupBannerOverlay() {
+    private fun setupHierarchicalOverlay() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         
-        // --- LAYOUT BANNER (Largura total, mas com margem) ---
+        // --- CARD DE INFORMAÇÃO ---
         rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(30, 20, 30, 20)
-            visibility = View.GONE // COMEÇA INVISÍVEL (Regra StopClub)
+            visibility = View.GONE // Invisível por padrão
             
-            // Fundo Preto/Azul Vidro (Legível)
+            // Fundo Moderno Escuro
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#F50F172A")) // Slate 900 (Quase 100% opaco)
-                cornerRadius = 40f
-                setStroke(3, Color.parseColor("#44FFFFFF")) // Borda Vidro
+                setColor(Color.parseColor("#F2111827")) // Slate 900 (95% Opaco)
+                cornerRadius = 35f
+                setStroke(2, Color.parseColor("#33FFFFFF")) // Borda Vidro
             }
         }
 
-        // 1. TOPO: VALOR DA CORRIDA (Gigante e Centralizado)
-        tvValorGrande = TextView(this).apply {
+        // 1. TOPO: VALOR DA CORRIDA (Gigante)
+        tvValorTopo = TextView(this).apply {
             text = "R$ --"
-            textSize = 26f // Aumentado para ler fácil
+            textSize = 28f 
             setTextColor(Color.parseColor("#4ADE80")) // Verde Neon
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setShadowLayer(10f, 0f, 0f, Color.BLACK)
+            setShadowLayer(8f, 0f, 0f, Color.BLACK)
         }
 
-        // 2. MEIO: SOMA KM E MIN (Médio)
-        tvDadosSoma = TextView(this).apply {
+        // 2. MEIO: KM e MINUTOS (Pequeno)
+        tvDadosMeio = TextView(this).apply {
             text = "-- km • -- min"
-            textSize = 16f // Aumentado
+            textSize = 14f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(0, 5, 0, 10)
+            setPadding(0, 2, 0, 10)
         }
 
-        // 3. BASE: RESULTADOS DO CÁLCULO (Coloridos)
-        tvCalculos = TextView(this).apply {
-            text = "Km: R$ --  |  H: R$ --"
-            textSize = 18f // Bem visível
+        // Linha Divisória Sutil
+        val divider = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(150, 2).apply {
+                gravity = Gravity.CENTER
+                setMargins(0, 0, 0, 8)
+            }
+            setBackgroundColor(Color.parseColor("#33FFFFFF"))
+        }
+
+        // 3. BAIXO: RESULTADOS (Médio e Colorido)
+        tvResultadosBaixo = TextView(this).apply {
+            text = "R$ --/km • R$ --/h"
+            textSize = 16f
             setTextColor(Color.LTGRAY)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
 
-        rootLayout.addView(tvValorGrande)
-        rootLayout.addView(tvDadosSoma)
-        rootLayout.addView(getDivider())
-        rootLayout.addView(tvCalculos)
+        rootLayout.addView(tvValorTopo)
+        rootLayout.addView(tvDadosMeio)
+        rootLayout.addView(divider)
+        rootLayout.addView(tvResultadosBaixo)
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT, // Ocupa largura
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         )
-        params.gravity = Gravity.TOP
-        params.y = 100 // Margem do topo para não cobrir relógio do sistema
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        params.y = 100 
         
-        // Margens laterais falsas (ajustando a largura do layoutParams seria complexo no código puro, 
-        // então confiamos no padding do rootLayout ou ajustamos a largura para 90%)
-        params.width = (resources.displayMetrics.widthPixels * 0.92).toInt()
+        // Ajuste de largura (90% da tela para parecer notificação)
+        params.width = (resources.displayMetrics.widthPixels * 0.90).toInt()
 
         try {
             windowManager.addView(rootLayout, params)
         } catch (e: Exception) {
             Log.e("Overlay", "Erro", e)
-        }
-    }
-
-    private fun getDivider(): View {
-        return View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(200, 2).apply {
-                gravity = Gravity.CENTER
-                setMargins(0, 0, 0, 10)
-            }
-            setBackgroundColor(Color.parseColor("#44FFFFFF"))
         }
     }
 
@@ -219,7 +211,7 @@ class OcrService : Service() {
     private fun startOcrLoop() {
         scope.launch(Dispatchers.IO) {
             while (isRunning) {
-                // Captura e Processa
+                var imageFound = false
                 var image = try { imageReader?.acquireLatestImage() } catch (e: Exception) { null }
 
                 if (image != null) {
@@ -232,116 +224,112 @@ class OcrService : Service() {
                         
                         val bitmap = Bitmap.createBitmap(screenWidth + rowPadding / pixelStride, screenHeight, Bitmap.Config.ARGB_8888)
                         bitmap.copyPixelsFromBuffer(buffer)
-                        
                         val cleanBitmap = if (rowPadding == 0) bitmap else Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight)
                         image.close() 
 
                         val inputImage = InputImage.fromBitmap(cleanBitmap, 0)
                         
-                        recognizer.process(inputImage)
-                            .addOnSuccessListener { visionText -> analyzeScreen(visionText.text) }
-                            .addOnFailureListener { }
-
+                        // Processamento Síncrono (espera resultado) para controlar o delay corretamente
+                        val task = recognizer.process(inputImage)
+                        
+                        // Aguarda a Task do ML Kit
+                        while (!task.isComplete) { delay(50) }
+                        
+                        if (task.isSuccessful) {
+                            // Se achou corrida, o analyzeScreen retorna TRUE
+                            if (analyzeScreen(task.result.text)) {
+                                imageFound = true
+                            }
+                        }
                     } catch (e: Exception) {
                         try { image.close() } catch (x: Exception) {}
                     }
                 }
-                
-                // Intervalo de leitura (1.5s é um bom balanço entre rapidez e bateria)
-                delay(1500) 
+
+                // LÓGICA DE FREEZE (Pausa Inteligente)
+                if (imageFound) {
+                    // Achou corrida e mostrou janela?
+                    // Desliga leitura por 5 segundos (Janela continua visível)
+                    delay(5000)
+                } else {
+                    // Não achou nada?
+                    // Esconde janela e tenta de novo em 1s (Scan rápido)
+                    hideWindow()
+                    delay(1000)
+                }
             }
         }
     }
 
-    private fun analyzeScreen(rawText: String) {
+    private fun analyzeScreen(rawText: String): Boolean {
         val cleanText = rawText.replace("\n", " ").replace("\r", " ")
         
-        // Regex robusta para pegar valores soltos
         val pricePattern = Pattern.compile("(R\\$|RS|\\$)\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
         val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
         val timePattern = Pattern.compile("([0-9]+)\\s*(min)", Pattern.CASE_INSENSITIVE)
 
-        var foundPrice = 0.0
-        var foundTotalDist = 0.0
-        var foundTotalTime = 0.0
+        var maxPrice = 0.0
+        var totalDist = 0.0
+        var totalTime = 0.0
 
-        // 1. Achar o PREÇO (Pega o MAIOR valor monetário da tela, pois geralmente é o total)
+        // 1. Achar PREÇO (Maior valor da tela)
         val priceMatcher = pricePattern.matcher(cleanText)
         while (priceMatcher.find()) {
             val v = priceMatcher.group(2)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
-            if (v > foundPrice) foundPrice = v
+            if (v > maxPrice) maxPrice = v
         }
 
         // 2. Somar KMs
         val distMatcher = distPattern.matcher(cleanText)
         while (distMatcher.find()) {
-            foundTotalDist += distMatcher.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+            totalDist += distMatcher.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
         }
 
-        // 3. Somar Minutos
+        // 3. Somar MINUTOS
         val timeMatcher = timePattern.matcher(cleanText)
         while (timeMatcher.find()) {
-            foundTotalTime += timeMatcher.group(1)?.toDoubleOrNull() ?: 0.0
+            totalTime += timeMatcher.group(1)?.toDoubleOrNull() ?: 0.0
         }
 
-        // --- LÓGICA DE DECISÃO (CÉREBRO DO STOPCLUB) ---
-        if (foundPrice > 0.0 && (foundTotalDist > 0.0 || foundTotalTime > 0.0)) {
+        // SE achou dados válidos -> Atualiza UI e retorna TRUE para pausar o loop
+        if (maxPrice > 0.0 && (totalDist > 0.0 || totalTime > 0.0)) {
+            val valPerKm = if (totalDist > 0) maxPrice / totalDist else 0.0
+            val valPerHour = if (totalTime > 0) (maxPrice / totalTime) * 60 else 0.0
             
-            // É uma corrida DIFERENTE da última que mostramos?
-            if (isDifferentRace(foundPrice, foundTotalDist)) {
-                
-                // Sim, é nova!
-                lastShownPrice = foundPrice
-                lastShownDist = foundTotalDist
-                
-                val valPerKm = if (foundTotalDist > 0) foundPrice / foundTotalDist else 0.0
-                val valPerHour = if (foundTotalTime > 0) (foundPrice / foundTotalTime) * 60 else 0.0
-                
-                showBanner(foundPrice, foundTotalDist, foundTotalTime, valPerKm, valPerHour)
-            } 
-            // Se for IGUAL à última, não fazemos NADA (o timer de ocultar já está rodando ou já ocultou)
-            
-        } else {
-            // Não achou nada na tela (Mapa, Menu, etc).
-            // Não precisamos resetar 'lastShownPrice' imediatamente, 
-            // pois se a mesma oferta piscar, não queremos spammar.
-            // Mas se passar muito tempo, podemos resetar? 
-            // Por enquanto, mantemos a lógica simples: Só mostra se mudar os valores.
-        }
+            showWindow(maxPrice, totalDist, totalTime, valPerKm, valPerHour)
+            return true
+        } 
+        
+        return false // Não achou nada
     }
 
-    private fun isDifferentRace(p: Double, d: Double): Boolean {
-        // Tolerância para evitar disparos falsos se o OCR ler "10.0" num frame e "10" no outro
-        return (abs(p - lastShownPrice) > 0.1 || abs(d - lastShownDist) > 0.5)
-    }
-
-    private fun showBanner(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double) {
+    private fun showWindow(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double) {
         Handler(Looper.getMainLooper()).post {
-            // 1. Atualiza UI
-            tvValorGrande.text = String.format("R$ %.2f", price)
-            tvDadosSoma.text = String.format("%.1f km  •  %.0f min", dist, time)
-            tvCalculos.text = String.format("Km: R$ %.2f   H: R$ %.0f", valKm, valHora)
+            // Se já estiver visível com os MESMOS dados, não faz nada (evita flicker)
+            // Mas como temos o delay de 5s, o flicker já é evitado pela lógica do loop.
+            
+            if (rootLayout.visibility != View.VISIBLE) rootLayout.visibility = View.VISIBLE
 
-            val kmColor = when {
+            // Formatação Exata Pedida
+            tvValorTopo.text = String.format("R$ %.2f", price)
+            tvDadosMeio.text = String.format("%.1f km • %.0f min", dist, time)
+            
+            tvResultadosBaixo.text = String.format("R$ %.2f/km • R$ %.2f/h", valKm, valHora)
+
+            // Cores baseadas no KM
+            val color = when {
                 valKm >= 2.0 -> Color.parseColor("#4ADE80") // Verde
                 valKm >= 1.5 -> Color.parseColor("#FACC15") // Amarelo
                 else -> Color.parseColor("#F87171") // Vermelho
             }
-            tvCalculos.setTextColor(kmColor)
+            tvResultadosBaixo.setTextColor(color)
+        }
+    }
 
-            // 2. Torna Visível
-            if (rootLayout.visibility != View.VISIBLE) {
-                rootLayout.visibility = View.VISIBLE
-            }
-
-            // 3. Agenda o desaparecimento (Auto-Hide) em 5 segundos
-            // Cancela agendamento anterior para não piscar
-            hideJob?.cancel()
-            hideJob = scope.launch {
-                delay(5000)
-                withContext(Dispatchers.Main) {
-                    rootLayout.visibility = View.GONE
-                }
+    private fun hideWindow() {
+        Handler(Looper.getMainLooper()).post {
+            if (rootLayout.visibility == View.VISIBLE) {
+                rootLayout.visibility = View.GONE
             }
         }
     }
@@ -349,7 +337,6 @@ class OcrService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
-        hideJob?.cancel()
         try { if (::rootLayout.isInitialized) windowManager.removeView(rootLayout) } catch (e: Exception) {}
         try { virtualDisplay?.release() } catch (e: Exception) {}
         try { mediaProjection?.stop() } catch (e: Exception) {}
