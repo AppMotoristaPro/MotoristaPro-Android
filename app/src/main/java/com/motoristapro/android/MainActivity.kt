@@ -23,13 +23,19 @@ class MainActivity : AppCompatActivity() {
     private val REQUEST_OVERLAY = 101
     private val REQUEST_MEDIA_PROJECTION = 102
 
-    // Interface para o Javascript chamar o Android
     inner class WebAppInterface(private val mContext: Context) {
         @JavascriptInterface
         fun requestPermission() {
-            runOnUiThread {
-                checkPermissionsAndStart()
-            }
+            runOnUiThread { checkPermissionsAndStart() }
+        }
+        
+        @JavascriptInterface
+        fun updateConfig(minKm: Double, minHora: Double) {
+            val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)
+            prefs.edit().putFloat("min_km", minKm.toFloat()).putFloat("min_hora", minHora.toFloat()).apply()
+            val intent = Intent("OCR_CONFIG_UPDATED")
+            LocalBroadcastManager.getInstance(mContext).sendBroadcast(intent)
+            runOnUiThread { Toast.makeText(mContext, "Configurações atualizadas!", Toast.LENGTH_SHORT).show() }
         }
     }
 
@@ -53,11 +59,7 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
-        
-        // Define o UserAgent para o site saber que é o App
         webView.settings.userAgentString = webView.settings.userAgentString + " MotoristaProApp"
-        
-        // Injeta a interface JS
         webView.addJavascriptInterface(WebAppInterface(this), "MotoristaProAndroid")
 
         webView.webViewClient = object : WebViewClient() {
@@ -67,16 +69,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        // URL DO SITE
         webView.loadUrl("https://refactored-space-tribble-v69ggpvvvj94hxprw-5000.app.github.dev")
-        
         root.addView(webView)
 
-        // Botão flutuante REMOVIDO! Agora o controle é pelo site.
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            ocrReceiver, IntentFilter("OCR_DATA_DETECTED")
-        )
+        LocalBroadcastManager.getInstance(this).registerReceiver(ocrReceiver, IntentFilter("OCR_DATA_DETECTED"))
     }
 
     private fun injectDataIntoSite(price: Double, dist: Double, time: Double) {
@@ -114,21 +110,12 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     startService(serviceIntent)
                 }
-                
-                // Avisa o site que começou
-                webView.evaluateJavascript("if(window.onServiceStarted) window.onServiceStarted();", null)
             } else {
                 Toast.makeText(this, "Permissão negada.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(ocrReceiver)
-    }
+    override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
+    override fun onDestroy() { super.onDestroy(); LocalBroadcastManager.getInstance(this).unregisterReceiver(ocrReceiver) }
 }
