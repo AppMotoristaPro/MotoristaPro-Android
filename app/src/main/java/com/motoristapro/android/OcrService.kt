@@ -257,7 +257,7 @@ class OcrService : Service() {
         
         // 1. PREÇO: Aceita "R$ 10", "10,50", "10.5", "10"
         // Regex busca cifrão seguido de digitos, com ou sem decimais
-        val pm = Pattern.compile("(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)").matcher(cleanText)
+        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+(?:[.,][0-9]{0,2})?)").matcher(cleanText)
         while (pm.find()) { 
             val vStr = pm.group(1)?.replace(",", ".") 
             val v = vStr?.toDoubleOrNull() ?: 0.0
@@ -266,7 +266,7 @@ class OcrService : Service() {
         }
         
         // 2. DISTÂNCIA: Aceita "1.5 km", "10km", "500m"
-        val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)").matcher(cleanText)
+        val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\\s*(km|m)(?!in)").matcher(cleanText)
         while (dm.find()) { 
             var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             val unit = dm.group(2)
@@ -276,14 +276,14 @@ class OcrService : Service() {
         }
         
         // 3. TEMPO: Aceita "1h 20min", "50 min"
-        val tm = Pattern.compile("([0-9]+)\s*h\s*(?:([0-9]+)\s*min)?").matcher(cleanText)
+        val tm = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?").matcher(cleanText)
         while (tm.find()) { 
             val h = tm.group(1)?.toIntOrNull() ?: 0
             val m = tm.group(2)?.toIntOrNull() ?: 0
             frameTime += (h * 60) + m
         }
         if (frameTime == 0.0) { 
-            val mm = Pattern.compile("([0-9]+)\s*min").matcher(cleanText)
+            val mm = Pattern.compile("([0-9]+)\\s*min").matcher(cleanText)
             while (mm.find()) frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0 
         }
 
