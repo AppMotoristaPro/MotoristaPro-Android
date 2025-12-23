@@ -109,10 +109,21 @@ class OcrService : Service() {
     // --- UI (Bolha e Card) ---
     private fun createBubble() {
         val bubbleLayout = FrameLayout(this)
+        // --- NOVO DESIGN: Redondo, Branco e com Ícone do App ---
+        val bg = GradientDrawable()
+        bg.shape = GradientDrawable.OVAL
+        bg.setColor(Color.WHITE)
+        bg.setStroke(2, Color.parseColor("#2563EB")) // Azul do Site
+        bubbleLayout.background = bg
+        bubbleLayout.elevation = 20f
+
         iconView = ImageView(this)
-        iconView!!.setImageResource(R.drawable.ic_launcher_foreground)
-        iconView!!.background = null; iconView!!.elevation = 10f
-        bubbleLayout.addView(iconView, FrameLayout.LayoutParams(140, 140))
+        // Usa o ícone do próprio APK (que você vai substituir manualmente)
+        iconView!!.setImageResource(R.mipmap.ic_launcher_round)
+        iconView!!.setPadding(15, 15, 15, 15) // Margem interna para ficar bonito
+        
+        bubbleLayout.addView(iconView, FrameLayout.LayoutParams(160, 160))
+        // -------------------------------------------------------
         val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
         params.gravity = Gravity.TOP or Gravity.START; params.x = 20; params.y = 300
         bubbleLayout.setOnClickListener { showControls() }
@@ -240,41 +251,59 @@ class OcrService : Service() {
     }
 
     private fun analyzeScreen(rawText: String): Boolean {
-        // --- VARIÁVEIS ZERADAS A CADA FRAME ---
         var framePrice = 0.0; var frameDist = 0.0; var frameTime = 0.0
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
+        // Limpeza agressiva: remove tudo que não é alphanumérico ou pontuação chave
+        val cleanText = rawText.replace("[^0-9a-zA-Z$,. ]".toRegex(), " ").lowercase()
         
-        // Regex
-        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+(?:[.,][0-9]{0,2})?)").matcher(cleanText)
-        while (pm.find()) { val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
-        
-        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)").matcher(cleanText)
-        while (dm.find()) { 
-            var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
-            if (dm.group(2) == "m") d /= 1000.0 
-            if (d < 200) frameDist += d 
+        // 1. PREÇO: Aceita "R$ 10", "10,50", "10.5", "10"
+        // Regex busca cifrão seguido de digitos, com ou sem decimais
+        val pm = Pattern.compile("(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)").matcher(cleanText)
+        while (pm.find()) { 
+            val vStr = pm.group(1)?.replace(",", ".") 
+            val v = vStr?.toDoubleOrNull() ?: 0.0
+            // Filtro de segurança: ignora valores absurdos (ex: R$ 0.00 ou R$ 5000 numa tela só)
+            if (v > 1.0 && v < 2000.0 && v > framePrice) framePrice = v 
         }
         
-        val tm = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?").matcher(cleanText)
-        while (tm.find()) { frameTime += ((tm.group(1)?.toIntOrNull()?:0)*60) + (tm.group(2)?.toIntOrNull()?:0) }
+        // 2. DISTÂNCIA: Aceita "1.5 km", "10km", "500m"
+        val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)").matcher(cleanText)
+        while (dm.find()) { 
+            var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+            val unit = dm.group(2)
+            if (unit == "m") d /= 1000.0 // Converte metros para KM
+            // Filtro: Viagens muito longas (>300km) geralmente são erro de leitura de data/hora
+            if (d > 0.1 && d < 300.0) frameDist += d 
+        }
+        
+        // 3. TEMPO: Aceita "1h 20min", "50 min"
+        val tm = Pattern.compile("([0-9]+)\s*h\s*(?:([0-9]+)\s*min)?").matcher(cleanText)
+        while (tm.find()) { 
+            val h = tm.group(1)?.toIntOrNull() ?: 0
+            val m = tm.group(2)?.toIntOrNull() ?: 0
+            frameTime += (h * 60) + m
+        }
         if (frameTime == 0.0) { 
-            val mm = Pattern.compile("([0-9]+)\\s*min").matcher(cleanText)
+            val mm = Pattern.compile("([0-9]+)\s*min").matcher(cleanText)
             while (mm.find()) frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0 
         }
 
-        // Se achou dados
+        // --- LÓGICA DE DECISÃO ---
+        // Só exibe se tivermos PREÇO e (Distância OU Tempo)
         if (framePrice > 0.0 && (frameDist > 0.0 || frameTime > 0.0)) {
             lastValidReadTime = System.currentTimeMillis()
             
-            // Só atualiza se for NOVO (Substituição)
+            // Evita ficar piscando a tela com a mesma leitura
             if (abs(framePrice - lastPrice) > 0.1 || abs(frameDist - lastDist) > 0.1) {
                 lastPrice = framePrice; lastDist = frameDist
                 
+                // Cálculos de Rentabilidade
                 val valPerKm = if (frameDist > 0) framePrice / frameDist else 0.0
                 val valPerHour = if (frameTime > 0) (framePrice / frameTime) * 60 else 0.0
+                
+                // Exibe o Card (Usa as configs minKm e minHora carregadas do site)
                 showCard(framePrice, frameDist, frameTime, valPerKm, valPerHour)
                 
-                // Broadcast
+                // Envia para o site (WebView)
                 val intent = Intent("OCR_DATA_DETECTED")
                 intent.putExtra("price", framePrice); intent.putExtra("dist", frameDist); intent.putExtra("time", frameTime)
                 LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
@@ -283,6 +312,8 @@ class OcrService : Service() {
         }
         return false
     }
+
+    
 
     override fun onDestroy() {
         super.onDestroy(); isServiceRunning = false
