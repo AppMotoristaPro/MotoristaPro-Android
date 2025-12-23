@@ -8,7 +8,7 @@ def create_file(path, content):
         f.write(content.strip())
     print(f"Atualizado: {path}")
 
-# --- OCR SERVICE (Estado Persistente + Lógica Contínua) ---
+# --- OCR SERVICE (Com Dicas de Ação) ---
 ocr_service_content = """
 package com.motoristapro.android
 
@@ -42,16 +42,17 @@ class OcrService : Service() {
 
     private lateinit var windowManager: WindowManager
     
-    // UI Components
+    // VIEWS
     private var bubbleView: View? = null
     private var infoCardView: LinearLayout? = null
     private var controlsView: LinearLayout? = null
-    private var iconView: ImageView? = null // Referência para mudar a cor da bolha
+    private var iconView: ImageView? = null
 
     // Elementos do Card
     private lateinit var tvValorTopo: TextView
     private lateinit var tvDadosMeio: TextView
     private lateinit var tvResultadosBaixo: TextView
+    private lateinit var tvDicaAcao: TextView // NOVA LINHA: DICA
 
     // Core
     private var mediaProjection: MediaProjection? = null
@@ -62,11 +63,11 @@ class OcrService : Service() {
     
     // Estados
     private var isServiceRunning = false
-    private var isMonitoring = true // Começa monitorando
+    private var isMonitoring = true
     private var lastValidReadTime = 0L
     private val TIMEOUT_MS = 5000L
     
-    // Memória de Valores
+    // Memória
     private var lastPrice = 0.0
     private var lastDist = 0.0
     
@@ -108,9 +109,7 @@ class OcrService : Service() {
         val channel = NotificationChannel(channelId, "OCR Service", NotificationManager.IMPORTANCE_LOW)
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Motorista Pro").setContentText("Toque na bolha para configurar")
-            .setSmallIcon(R.drawable.ic_launcher_foreground).setOngoing(true).build()
-        
+            .setContentTitle("Motorista Pro").setContentText("Monitoramento Ativo").setSmallIcon(R.drawable.ic_launcher_foreground).setOngoing(true).build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -118,12 +117,12 @@ class OcrService : Service() {
         }
     }
 
-    // --- 1. BOLHA INTELIGENTE ---
+    // --- 1. BOLHA ---
     private fun createBubble() {
         val bubbleLayout = FrameLayout(this)
         iconView = ImageView(this)
         iconView!!.setImageResource(R.drawable.ic_launcher_foreground)
-        updateBubbleState(true) // Inicializa Azul (Ativo)
+        updateBubbleState(true)
         
         iconView!!.setPadding(15,15,15,15)
         bubbleLayout.addView(iconView, FrameLayout.LayoutParams(120, 120))
@@ -145,67 +144,49 @@ class OcrService : Service() {
         bg.shape = GradientDrawable.OVAL
         bg.setStroke(2, Color.WHITE)
         if (active) {
-            bg.setColor(Color.parseColor("#2563EB")) // Azul (Ligado)
+            bg.setColor(Color.parseColor("#2563EB"))
             iconView?.alpha = 1.0f
         } else {
-            bg.setColor(Color.parseColor("#475569")) // Cinza (Desligado)
+            bg.setColor(Color.parseColor("#475569"))
             iconView?.alpha = 0.7f
         }
         iconView?.background = bg
     }
 
-    // --- 2. MENU DE CONTROLE (Persistente) ---
+    // --- 2. CONTROLES ---
     private fun createControls() {
         controlsView = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL // Vertical para caber mais botões
+            orientation = LinearLayout.VERTICAL
             setPadding(20, 20, 20, 20)
             visibility = View.GONE
             background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 30f; setStroke(1, Color.LTGRAY) }
         }
         
-        // Botão Ligar/Desligar Monitoramento
         val btnToggle = Button(this).apply {
             text = "PAUSAR MONITORAMENTO"
             textSize = 12f
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply { setColor(Color.parseColor("#F59E0B")); cornerRadius = 20f }
-            setOnClickListener { 
-                toggleMonitoring(this)
-                hideControls()
-            }
+            setOnClickListener { toggleMonitoring(this); hideControls() }
         }
         
-        // Botão Fechar App (Kill)
         val btnKill = Button(this).apply {
             text = "FECHAR APP TOTALMENTE"
             textSize = 10f
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply { setColor(Color.parseColor("#EF4444")); cornerRadius = 20f }
-            setOnClickListener { stopSelf() } // Esse sim mata o serviço
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, 10, 0, 0)
-            }
+            setOnClickListener { stopSelf() }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 10, 0, 0) }
         }
         
-        // Botão Fechar Menu
         val btnCloseMenu = TextView(this).apply {
-            text = "Fechar Menu"
-            textSize = 12f
-            setTextColor(Color.GRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 15, 0, 0)
-            setOnClickListener { hideControls() }
+            text = "Fechar Menu"; textSize = 12f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
+            setPadding(0, 15, 0, 0); setOnClickListener { hideControls() }
         }
         
-        controlsView!!.addView(btnToggle)
-        controlsView!!.addView(btnKill)
-        controlsView!!.addView(btnCloseMenu)
+        controlsView!!.addView(btnToggle); controlsView!!.addView(btnKill); controlsView!!.addView(btnCloseMenu)
 
-        val params = WindowManager.LayoutParams(
-            600, WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
-        )
+        val params = WindowManager.LayoutParams(600, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
         params.gravity = Gravity.CENTER
         windowManager.addView(controlsView, params)
     }
@@ -213,18 +194,13 @@ class OcrService : Service() {
     private fun toggleMonitoring(btn: Button) {
         isMonitoring = !isMonitoring
         if (isMonitoring) {
-            btn.text = "PAUSAR MONITORAMENTO"
-            updateBubbleState(true)
-            Toast.makeText(this, "Monitoramento Retomado", Toast.LENGTH_SHORT).show()
+            btn.text = "PAUSAR MONITORAMENTO"; updateBubbleState(true); Toast.makeText(this, "Monitoramento Retomado", Toast.LENGTH_SHORT).show()
         } else {
-            btn.text = "ATIVAR MONITORAMENTO"
-            updateBubbleState(false)
-            hideCard() // Esconde card se tiver aberto
-            Toast.makeText(this, "Monitoramento Pausado", Toast.LENGTH_SHORT).show()
+            btn.text = "ATIVAR MONITORAMENTO"; updateBubbleState(false); hideCard(); Toast.makeText(this, "Monitoramento Pausado", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // --- 3. CARD DE INFORMAÇÃO ---
+    // --- 3. CARD (COM DICA DE AÇÃO) ---
     private fun createInfoCard() {
         infoCardView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -232,10 +208,27 @@ class OcrService : Service() {
             visibility = View.GONE 
             background = GradientDrawable().apply { setColor(Color.parseColor("#F20F172A")); cornerRadius = 40f; setStroke(2, Color.parseColor("#33FFFFFF")) }
         }
+
         tvValorTopo = TextView(this).apply { text = "R$ --"; textSize = 26f; setTextColor(Color.parseColor("#4ADE80")); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setShadowLayer(5f, 0f, 0f, Color.BLACK) }
         tvDadosMeio = TextView(this).apply { text = "-- km • -- min"; textSize = 14f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER; setPadding(0, 2, 0, 10) }
         tvResultadosBaixo = TextView(this).apply { text = "R$ --/km • R$ --/h"; textSize = 18f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }
-        infoCardView!!.addView(tvValorTopo); infoCardView!!.addView(tvDadosMeio); infoCardView!!.addView(tvResultadosBaixo)
+        
+        // NOVA LINHA: DICA
+        tvDicaAcao = TextView(this).apply {
+            text = "..."
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(10, 5, 10, 5)
+            // Background será definido dinamicamente
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                setMargins(0, 15, 0, 0)
+            }
+        }
+
+        infoCardView!!.addView(tvValorTopo); infoCardView!!.addView(tvDadosMeio); infoCardView!!.addView(tvResultadosBaixo); infoCardView!!.addView(tvDicaAcao)
         
         val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; params.y = 80; params.width = (resources.displayMetrics.widthPixels * 0.90).toInt()
@@ -248,11 +241,38 @@ class OcrService : Service() {
     private fun showCard(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double) {
         Handler(Looper.getMainLooper()).post {
             bubbleView?.visibility = View.GONE; controlsView?.visibility = View.GONE; infoCardView?.visibility = View.VISIBLE
+            
+            // Textos
             tvValorTopo.text = String.format("R$ %.2f", price)
             tvDadosMeio.text = String.format("%.1f km  •  %.0f min", dist, time)
             tvResultadosBaixo.text = String.format("R$ %.2f/km • R$ %.2f/h", valKm, valHora)
-            val color = when { valKm >= minKm -> Color.parseColor("#4ADE80"); valKm >= (minKm * 0.75) -> Color.parseColor("#FACC15"); else -> Color.parseColor("#F87171") }
+            
+            // Lógica de Decisão
+            val color: Int
+            val message: String
+            val bgDica = GradientDrawable().apply { cornerRadius = 15f }
+
+            if (valKm >= minKm) {
+                // BOA
+                color = Color.parseColor("#4ADE80") // Verde
+                message = "BOA! ACEITA LOGO 🚀"
+                bgDica.setColor(Color.parseColor("#334ADE80")) // Verde Translúcido
+            } else if (valKm >= (minKm * 0.75)) {
+                // MÉDIA
+                color = Color.parseColor("#FACC15") // Amarelo
+                message = "MÉDIA. ANALISE BEM 🤔"
+                bgDica.setColor(Color.parseColor("#33FACC15")) // Amarelo Translúcido
+            } else {
+                // RUIM
+                color = Color.parseColor("#F87171") // Vermelho
+                message = "PREJUÍZO! PULA FORA 🛑"
+                bgDica.setColor(Color.parseColor("#33F87171")) // Vermelho Translúcido
+            }
+            
             tvResultadosBaixo.setTextColor(color)
+            tvDicaAcao.text = message
+            tvDicaAcao.setTextColor(color)
+            tvDicaAcao.background = bgDica
         }
     }
     
@@ -260,7 +280,7 @@ class OcrService : Service() {
         Handler(Looper.getMainLooper()).post { 
             if (infoCardView?.visibility == View.VISIBLE) {
                 infoCardView?.visibility = View.GONE
-                bubbleView?.visibility = View.VISIBLE // Volta a bolha ao fechar o card
+                bubbleView?.visibility = View.VISIBLE
             }
         } 
     }
@@ -268,14 +288,7 @@ class OcrService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val resultCode = intent?.getIntExtra("RESULT_CODE", 0) ?: 0
         val resultData = intent?.getParcelableExtra<Intent>("RESULT_DATA")
-        
-        // Se já tem projeção, não recria, apenas garante monitoramento ON
-        if (mediaProjection != null) {
-            isMonitoring = true
-            updateBubbleState(true)
-            return START_STICKY
-        }
-
+        if (mediaProjection != null) { isMonitoring = true; updateBubbleState(true); return START_STICKY }
         if (resultCode != 0 && resultData != null) setupMediaProjection(resultCode, resultData)
         return START_STICKY
     }
@@ -289,51 +302,34 @@ class OcrService : Service() {
             screenWidth = metrics.widthPixels / 2; screenHeight = metrics.heightPixels / 2
             imageReader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2)
             virtualDisplay = mediaProjection?.createVirtualDisplay("ScreenCapture", screenWidth, screenHeight, metrics.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader?.surface, null, null)
-            startOcrLoop()
+            isRunning = true; startOcrLoop()
         } catch (e: Exception) { stopSelf() }
     }
 
-    // --- LOOP LÓGICO CONTÍNUO ---
     private fun startOcrLoop() {
         scope.launch(Dispatchers.IO) {
             while (isServiceRunning) {
-                // Se estiver pausado pelo usuário, apenas espera (loop leve)
-                if (!isMonitoring) {
-                    delay(500)
-                    continue
-                }
-
-                // Captura e Processa
+                if (!isMonitoring) { delay(500); continue }
                 var image = try { imageReader?.acquireLatestImage() } catch (e: Exception) { null }
                 var frameHasData = false
-
                 if (image != null) {
                     try {
                         val planes = image.planes; val buffer = planes[0].buffer
                         val pixelStride = planes[0].pixelStride; val rowStride = planes[0].rowStride; val rowPadding = rowStride - pixelStride * screenWidth
                         val fullBitmap = Bitmap.createBitmap(screenWidth + rowPadding / pixelStride, screenHeight, Bitmap.Config.ARGB_8888)
                         fullBitmap.copyPixelsFromBuffer(buffer); image.close()
-                        
                         val cropY = (screenHeight * 0.10).toInt(); val cropHeight = screenHeight - cropY
                         if (cropHeight > 0 && cropY < fullBitmap.height) {
                             val croppedBitmap = Bitmap.createBitmap(fullBitmap, 0, cropY, screenWidth, cropHeight)
                             val inputImage = InputImage.fromBitmap(croppedBitmap, 0)
                             val task = recognizer.process(inputImage)
-                            while (!task.isComplete) { delay(20) } // Espera rápida
+                            while (!task.isComplete) { delay(20) }
                             if (task.isSuccessful) frameHasData = analyzeScreen(task.result.text)
                         }
                     } catch (e: Exception) { try { image.close() } catch (x: Exception) {} }
                 }
-                
-                // LÓGICA DE TEMPO DE VIDA DA JANELA
-                val timeSinceLastRead = System.currentTimeMillis() - lastValidReadTime
-                
-                // Se não leu nada novo nos últimos 5 segundos, fecha a janela
-                if (!frameHasData && timeSinceLastRead > TIMEOUT_MS) {
-                    hideCard()
-                }
-
-                delay(1000) // Leitura a cada 1 segundo (Não desliga mais!)
+                if (!frameHasData && (System.currentTimeMillis() - lastValidReadTime > TIMEOUT_MS)) { hideCard() }
+                delay(1000)
             }
         }
     }
@@ -344,7 +340,6 @@ class OcrService : Service() {
         val pricePattern = Pattern.compile("(R\\\\$|RS|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
         val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
         val timePattern = Pattern.compile("([0-9]+)\\\\s*(min)", Pattern.CASE_INSENSITIVE)
-
         val pm = pricePattern.matcher(cleanText); 
         while (pm.find()) { val v = pm.group(2)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
         val dm = distPattern.matcher(cleanText); 
@@ -353,53 +348,38 @@ class OcrService : Service() {
         while (tm.find()) frameTime += tm.group(1)?.toDoubleOrNull() ?: 0.0
 
         if (framePrice > 0.0 && (frameDist > 0.0 || frameTime > 0.0)) {
-            lastValidReadTime = System.currentTimeMillis() // Reseta o timer de fechamento
-            
-            // Se os valores MUDARAM, atualiza o visual (Zera e põe novo)
+            lastValidReadTime = System.currentTimeMillis()
             if (isDifferent(framePrice, frameDist)) {
-                lastPrice = framePrice
-                lastDist = frameDist
-                
+                lastPrice = framePrice; lastDist = frameDist
                 val valPerKm = if (frameDist > 0) framePrice / frameDist else 0.0
                 val valPerHour = if (frameTime > 0) (framePrice / frameTime) * 60 else 0.0
-                
                 showCard(framePrice, frameDist, frameTime, valPerKm, valPerHour)
-                
-                // Envia para o site
                 val intent = Intent("OCR_DATA_DETECTED")
                 intent.putExtra("price", framePrice); intent.putExtra("dist", frameDist); intent.putExtra("time", frameTime)
                 LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
             }
-            // Se for igual, apenas atualizamos lastValidReadTime para manter a janela aberta
-            
             return true
         }
         return false
     }
 
-    private fun isDifferent(p: Double, d: Double): Boolean { 
-        return (abs(p - lastPrice) > 0.1 || abs(d - lastDist) > 0.5) 
-    }
+    private fun isDifferent(p: Double, d: Double): Boolean { return (abs(p - lastPrice) > 0.1 || abs(d - lastDist) > 0.5) }
 
     override fun onDestroy() {
         super.onDestroy(); isServiceRunning = false
-        try { 
-            if (bubbleView != null) windowManager.removeView(bubbleView)
-            if (infoCardView != null) windowManager.removeView(infoCardView)
-            if (controlsView != null) windowManager.removeView(controlsView)
-        } catch (e: Exception) {}
+        try { if (bubbleView != null) windowManager.removeView(bubbleView); if (infoCardView != null) windowManager.removeView(infoCardView); if (controlsView != null) windowManager.removeView(controlsView) } catch (e: Exception) {}
         try { virtualDisplay?.release(); mediaProjection?.stop(); recognizer.close() } catch (e: Exception) {}
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
 """
 
-print("--- Aplicando Lógica Contínua e Bolha Persistente ---")
+print("--- Aplicando Dicas de Ação (Boa/Ruim) ---")
 create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
 
 print("\nExecute:")
 print("1. git add .")
-print("2. git commit -m 'Feat: Smart Bubble Persistence'")
+print("2. git commit -m 'UI: Add Action Hints (Boa/Ruim)'")
 print("3. git push")
 
 
