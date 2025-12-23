@@ -1,3 +1,15 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- OCR SERVICE (Lógica de Comparação Robô vs Janela) ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -249,23 +261,23 @@ class OcrService : Service() {
         var frameDist = 0.0
         var frameTime = 0.0
 
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ").lowercase()
         
         // 2. Extração (Regex)
-        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
+        val pm = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
         while (pm.find()) { val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
         
-        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)").matcher(cleanText)
+        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)").matcher(cleanText)
         while (dm.find()) { 
             var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (dm.group(2) == "m") d /= 1000.0 
             if (d < 200) frameDist += d 
         }
         
-        val tm = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?").matcher(cleanText)
+        val tm = Pattern.compile("([0-9]+)\\\\s*h\\\\s*(?:([0-9]+)\\\\s*min)?").matcher(cleanText)
         while (tm.find()) { frameTime += ((tm.group(1)?.toIntOrNull()?:0)*60) + (tm.group(2)?.toIntOrNull()?:0) }
         if (frameTime == 0.0) { 
-            val mm = Pattern.compile("([0-9]+)\\s*min").matcher(cleanText)
+            val mm = Pattern.compile("([0-9]+)\\\\s*min").matcher(cleanText)
             while (mm.find()) frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0 
         }
 
@@ -315,3 +327,14 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+print("--- Aplicando Lógica de Comparação e Timeout 5s ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Comparison Logic and Timeout'")
+print("3. git push")
+
+
