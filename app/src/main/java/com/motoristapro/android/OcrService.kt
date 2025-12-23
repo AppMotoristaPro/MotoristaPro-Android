@@ -36,10 +36,10 @@ class OcrService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var rootLayout: LinearLayout
     
-    // Elementos da UI
-    private lateinit var tvValorTopo: TextView      // R$ 20,00
-    private lateinit var tvDadosMeio: TextView      // 10 km • 10 min
-    private lateinit var tvResultadosBaixo: TextView // R$ 2,00/km • R$ 120,00/h
+    // --- UI HIERARQUIA ---
+    private lateinit var tvValorTopo: TextView       // 1. R$ 20,00 (Grande)
+    private lateinit var tvDadosMeio: TextView       // 2. 10km 10min (Pequeno)
+    private lateinit var tvResultadosBaixo: TextView // 3. R$ 2,00/km R$ 120/h (Médio/Destaque)
 
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -58,7 +58,7 @@ class OcrService : Service() {
         super.onCreate()
         try {
             startForegroundServiceCompat()
-            setupHierarchicalOverlay()
+            setupGlassOverlay()
         } catch (e: Exception) {
             Log.e("OCR", "Erro Fatal", e)
         }
@@ -71,7 +71,7 @@ class OcrService : Service() {
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Motorista Pro")
-            .setContentText("Monitorando...")
+            .setContentText("Lendo tela...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
             .build()
@@ -83,65 +83,56 @@ class OcrService : Service() {
         }
     }
 
-    private fun setupHierarchicalOverlay() {
+    private fun setupGlassOverlay() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         
-        // --- CARD DE INFORMAÇÃO ---
+        // --- CONTAINER GLASS ---
         rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(30, 20, 30, 20)
-            visibility = View.GONE // Invisível por padrão
+            setPadding(30, 25, 30, 25)
+            visibility = View.GONE // Invisível até achar algo
             
-            // Fundo Moderno Escuro
+            // Fundo Glass Escuro (Slate 900 com transparência)
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#F2111827")) // Slate 900 (95% Opaco)
-                cornerRadius = 35f
-                setStroke(2, Color.parseColor("#33FFFFFF")) // Borda Vidro
+                setColor(Color.parseColor("#F20F172A")) // Quase opaco para leitura
+                cornerRadius = 40f
+                setStroke(2, Color.parseColor("#33FFFFFF")) // Borda fina branca
             }
         }
 
-        // 1. TOPO: VALOR DA CORRIDA (Gigante)
+        // 1. TOPO: VALOR (Gigante e Centralizado)
         tvValorTopo = TextView(this).apply {
             text = "R$ --"
-            textSize = 28f 
+            textSize = 32f // Bem Grande
             setTextColor(Color.parseColor("#4ADE80")) // Verde Neon
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setShadowLayer(8f, 0f, 0f, Color.BLACK)
+            setShadowLayer(10f, 0f, 0f, Color.BLACK)
         }
 
-        // 2. MEIO: KM e MINUTOS (Pequeno)
+        // 2. MEIO: SOMA DE KM e MIN (Pequeno)
         tvDadosMeio = TextView(this).apply {
-            text = "-- km • -- min"
+            text = "-- km  •  -- min"
             textSize = 14f
-            setTextColor(Color.WHITE)
+            setTextColor(Color.LTGRAY) // Cinza claro
             gravity = Gravity.CENTER
-            setPadding(0, 2, 0, 10)
+            setPadding(0, 0, 0, 10) // Espaço para separar do resultado final
         }
 
-        // Linha Divisória Sutil
-        val divider = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(150, 2).apply {
-                gravity = Gravity.CENTER
-                setMargins(0, 0, 0, 8)
-            }
-            setBackgroundColor(Color.parseColor("#33FFFFFF"))
-        }
-
-        // 3. BAIXO: RESULTADOS (Médio e Colorido)
+        // 3. BAIXO: RESULTADOS R$/KM e R$/H (Médio)
         tvResultadosBaixo = TextView(this).apply {
             text = "R$ --/km • R$ --/h"
-            textSize = 16f
-            setTextColor(Color.LTGRAY)
+            textSize = 18f
+            setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
 
         rootLayout.addView(tvValorTopo)
         rootLayout.addView(tvDadosMeio)
-        rootLayout.addView(divider)
         rootLayout.addView(tvResultadosBaixo)
 
+        // Params da Janela
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -150,9 +141,9 @@ class OcrService : Service() {
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        params.y = 100 
+        params.y = 120 
         
-        // Ajuste de largura (90% da tela para parecer notificação)
+        // Largura estilo Notificação (90% da tela)
         params.width = (resources.displayMetrics.widthPixels * 0.90).toInt()
 
         try {
@@ -211,7 +202,7 @@ class OcrService : Service() {
     private fun startOcrLoop() {
         scope.launch(Dispatchers.IO) {
             while (isRunning) {
-                var imageFound = false
+                var foundData = false
                 var image = try { imageReader?.acquireLatestImage() } catch (e: Exception) { null }
 
                 if (image != null) {
@@ -229,32 +220,29 @@ class OcrService : Service() {
 
                         val inputImage = InputImage.fromBitmap(cleanBitmap, 0)
                         
-                        // Processamento Síncrono (espera resultado) para controlar o delay corretamente
                         val task = recognizer.process(inputImage)
-                        
-                        // Aguarda a Task do ML Kit
-                        while (!task.isComplete) { delay(50) }
+                        while (!task.isComplete) { delay(50) } // Espera resultado síncrono
                         
                         if (task.isSuccessful) {
-                            // Se achou corrida, o analyzeScreen retorna TRUE
-                            if (analyzeScreen(task.result.text)) {
-                                imageFound = true
-                            }
+                            // Se analyzeScreen retornar TRUE, significa que achou corrida
+                            foundData = analyzeScreen(task.result.text)
                         }
                     } catch (e: Exception) {
                         try { image.close() } catch (x: Exception) {}
                     }
                 }
 
-                // LÓGICA DE FREEZE (Pausa Inteligente)
-                if (imageFound) {
-                    // Achou corrida e mostrou janela?
-                    // Desliga leitura por 5 segundos (Janela continua visível)
+                // --- CICLO DE VIDA DO OCR (O Segredo) ---
+                if (foundData) {
+                    // Cenario 1: Achou corrida.
+                    // A janela já foi atualizada dentro do analyzeScreen.
+                    // Agora PAUSAMOS por 5 segundos. A janela fica visível.
                     delay(5000)
                 } else {
-                    // Não achou nada?
-                    // Esconde janela e tenta de novo em 1s (Scan rápido)
+                    // Cenario 2: Não achou nada (ou a corrida sumiu).
+                    // Fecha a janela imediatamente.
                     hideWindow()
+                    // Espera só 1 segundo para tentar ler de novo (modo busca rápida).
                     delay(1000)
                 }
             }
@@ -262,58 +250,58 @@ class OcrService : Service() {
     }
 
     private fun analyzeScreen(rawText: String): Boolean {
+        // RESET DE VARIÁVEIS (Essencial para não somar infinitamente)
+        // Elas são recriadas a cada frame lido.
+        var frameMaxPrice = 0.0
+        var frameTotalDist = 0.0
+        var frameTotalTime = 0.0
+
         val cleanText = rawText.replace("\n", " ").replace("\r", " ")
         
         val pricePattern = Pattern.compile("(R\\$|RS|\\$)\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
         val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
         val timePattern = Pattern.compile("([0-9]+)\\s*(min)", Pattern.CASE_INSENSITIVE)
 
-        var maxPrice = 0.0
-        var totalDist = 0.0
-        var totalTime = 0.0
-
-        // 1. Achar PREÇO (Maior valor da tela)
+        // 1. Achar PREÇO (Maior valor)
         val priceMatcher = pricePattern.matcher(cleanText)
         while (priceMatcher.find()) {
             val v = priceMatcher.group(2)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
-            if (v > maxPrice) maxPrice = v
+            if (v > frameMaxPrice) frameMaxPrice = v
         }
 
         // 2. Somar KMs
         val distMatcher = distPattern.matcher(cleanText)
         while (distMatcher.find()) {
-            totalDist += distMatcher.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+            frameTotalDist += distMatcher.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
         }
 
         // 3. Somar MINUTOS
         val timeMatcher = timePattern.matcher(cleanText)
         while (timeMatcher.find()) {
-            totalTime += timeMatcher.group(1)?.toDoubleOrNull() ?: 0.0
+            frameTotalTime += timeMatcher.group(1)?.toDoubleOrNull() ?: 0.0
         }
 
-        // SE achou dados válidos -> Atualiza UI e retorna TRUE para pausar o loop
-        if (maxPrice > 0.0 && (totalDist > 0.0 || totalTime > 0.0)) {
-            val valPerKm = if (totalDist > 0) maxPrice / totalDist else 0.0
-            val valPerHour = if (totalTime > 0) (maxPrice / totalTime) * 60 else 0.0
+        // Se achou dados válidos neste frame
+        if (frameMaxPrice > 0.0 && (frameTotalDist > 0.0 || frameTotalTime > 0.0)) {
+            val valPerKm = if (frameTotalDist > 0) frameMaxPrice / frameTotalDist else 0.0
+            val valPerHour = if (frameTotalTime > 0) (frameMaxPrice / frameTotalTime) * 60 else 0.0
             
-            showWindow(maxPrice, totalDist, totalTime, valPerKm, valPerHour)
-            return true
+            showWindow(frameMaxPrice, frameTotalDist, frameTotalTime, valPerKm, valPerHour)
+            return true // Retorna TRUE para ativar o delay de 5s
         } 
         
-        return false // Não achou nada
+        return false // Retorna FALSE para fechar janela e buscar rápido
     }
 
     private fun showWindow(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double) {
         Handler(Looper.getMainLooper()).post {
-            // Se já estiver visível com os MESMOS dados, não faz nada (evita flicker)
-            // Mas como temos o delay de 5s, o flicker já é evitado pela lógica do loop.
-            
             if (rootLayout.visibility != View.VISIBLE) rootLayout.visibility = View.VISIBLE
 
-            // Formatação Exata Pedida
+            // Formatação Exata Solicitada
             tvValorTopo.text = String.format("R$ %.2f", price)
-            tvDadosMeio.text = String.format("%.1f km • %.0f min", dist, time)
+            tvDadosMeio.text = String.format("%.1f km  •  %.0f min", dist, time)
             
+            // Texto da Última Linha
             tvResultadosBaixo.text = String.format("R$ %.2f/km • R$ %.2f/h", valKm, valHora)
 
             // Cores baseadas no KM
