@@ -8,7 +8,7 @@ def create_file(path, content):
         f.write(content.strip())
     print(f"Atualizado: {path}")
 
-# --- OCR SERVICE (Móvel, Transparente, Lógica Correta) ---
+# --- OCR SERVICE (Com Máscara de Segurança Anti-Espelho) ---
 ocr_service_content = """
 package com.motoristapro.android
 
@@ -28,7 +28,6 @@ import android.media.projection.MediaProjectionManager
 import android.os.*
 import android.util.DisplayMetrics
 import android.view.*
-import android.view.View.OnTouchListener
 import android.widget.*
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -48,15 +47,8 @@ class OcrService : Service() {
     private var infoCardView: LinearLayout? = null
     private var controlsView: LinearLayout? = null
     private var iconView: ImageView? = null
-    
-    // Variáveis para Mover a Bolha
-    private var initialX = 0
-    private var initialY = 0
-    private var initialTouchX = 0f
-    private var initialTouchY = 0f
-    private var bubbleParams: WindowManager.LayoutParams? = null
 
-    // Card Elements
+    // Textos
     private lateinit var tvValorTopo: TextView
     private lateinit var tvDadosMeio: TextView
     private lateinit var tvResultadosBaixo: TextView
@@ -73,9 +65,9 @@ class OcrService : Service() {
     private var isServiceRunning = false
     private var isMonitoring = true
     private var lastValidReadTime = 0L
-    private val TIMEOUT_MS = 3000L // 3 Segundos Timeout
+    private val TIMEOUT_MS = 5000L // Fecha em 5s se não achar nada
     
-    // Memória (Para comparação, não para soma)
+    // Memória
     private var lastPrice = 0.0
     private var lastDist = 0.0
     
@@ -99,7 +91,7 @@ class OcrService : Service() {
         
         try {
             startForegroundServiceCompat()
-            createMovableBubble() // Bolha móvel
+            createBubble()
             createInfoCard()
             createControls()
             isServiceRunning = true
@@ -126,158 +118,72 @@ class OcrService : Service() {
         }
     }
 
-    // --- 1. BOLHA MÓVEL E TRANSPARENTE ---
-    private fun createMovableBubble() {
+    // --- UI (Bolha e Card) ---
+    private fun createBubble() {
         val bubbleLayout = FrameLayout(this)
         iconView = ImageView(this)
         iconView!!.setImageResource(R.drawable.ic_launcher_foreground)
-        
-        // Fundo Transparente (Apenas ícone)
-        iconView!!.background = null 
-        iconView!!.elevation = 10f // Sombra leve para destacar
-        
-        bubbleLayout.addView(iconView, FrameLayout.LayoutParams(150, 150)) // Tamanho confortável para dedo
-        
-        bubbleParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
-        )
-        bubbleParams!!.gravity = Gravity.TOP or Gravity.START
-        bubbleParams!!.x = 20
-        bubbleParams!!.y = 300
-
-        // LÓGICA DE ARRASTAR (TOUCH LISTENER)
-        bubbleLayout.setOnTouchListener(object : OnTouchListener {
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                when (event.action) {
-                    MotionEvent.ACTION_DOWN -> {
-                        initialX = bubbleParams!!.x
-                        initialY = bubbleParams!!.y
-                        initialTouchX = event.rawX
-                        initialTouchY = event.rawY
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        bubbleParams!!.x = initialX + (event.rawX - initialTouchX).toInt()
-                        bubbleParams!!.y = initialY + (event.rawY - initialTouchY).toInt()
-                        windowManager.updateViewLayout(bubbleView, bubbleParams)
-                        return true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        // Detecta clique (se moveu pouco)
-                        val xDiff = (event.rawX - initialTouchX)
-                        val yDiff = (event.rawY - initialTouchY)
-                        if (abs(xDiff) < 10 && abs(yDiff) < 10) {
-                            showControls()
-                        }
-                        return true
-                    }
-                }
-                return false
-            }
-        })
-
+        iconView!!.background = null; iconView!!.elevation = 10f
+        bubbleLayout.addView(iconView, FrameLayout.LayoutParams(140, 140))
+        val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
+        params.gravity = Gravity.TOP or Gravity.START; params.x = 20; params.y = 300
+        bubbleLayout.setOnClickListener { showControls() }
         bubbleView = bubbleLayout
-        windowManager.addView(bubbleView, bubbleParams)
+        windowManager.addView(bubbleView, params)
     }
     
-    private fun updateBubbleState(active: Boolean) {
-        if (active) {
-            iconView?.alpha = 1.0f
-        } else {
-            iconView?.alpha = 0.5f // Transparente se pausado
-        }
-    }
-
-    // --- 2. CONTROLES ---
     private fun createControls() {
-        controlsView = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(30, 20, 30, 20)
-            visibility = View.GONE
-            background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 30f; setStroke(1, Color.LTGRAY) }
-        }
-        val btnToggle = Button(this).apply {
-            text = "PAUSAR"
-            textSize = 12f; setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor(Color.parseColor("#F59E0B")); cornerRadius = 20f }
-            setOnClickListener { toggleMonitoring(this); hideControls() }
-        }
-        val btnKill = Button(this).apply {
-            text = "FECHAR APP"
-            textSize = 10f; setTextColor(Color.WHITE)
-            background = GradientDrawable().apply { setColor(Color.parseColor("#EF4444")); cornerRadius = 20f }
-            setOnClickListener { stopSelf() }
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 10, 0, 0) }
-        }
-        val btnClose = TextView(this).apply {
-            text = "Fechar Menu"; textSize = 12f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
-            setPadding(0, 15, 0, 0); setOnClickListener { hideControls() }
-        }
+        controlsView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(20, 20, 20, 20); visibility = View.GONE; background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 30f; setStroke(1, Color.LTGRAY) } }
+        val btnToggle = Button(this).apply { text = "PAUSAR"; textSize = 12f; setTextColor(Color.WHITE); background = GradientDrawable().apply { setColor(Color.parseColor("#F59E0B")); cornerRadius = 20f }; setOnClickListener { toggleMonitoring(this); hideControls() } }
+        val btnKill = Button(this).apply { text = "FECHAR APP"; textSize = 10f; setTextColor(Color.WHITE); background = GradientDrawable().apply { setColor(Color.parseColor("#EF4444")); cornerRadius = 20f }; setOnClickListener { stopSelf() }; layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 10, 0, 0) } }
+        val btnClose = TextView(this).apply { text = "Fechar Menu"; textSize = 12f; setTextColor(Color.GRAY); gravity = Gravity.CENTER; setPadding(0, 15, 0, 0); setOnClickListener { hideControls() } }
         controlsView!!.addView(btnToggle); controlsView!!.addView(btnKill); controlsView!!.addView(btnClose)
-        val params = WindowManager.LayoutParams(600, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
-        params.gravity = Gravity.CENTER
+        val params = WindowManager.LayoutParams(600, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT); params.gravity = Gravity.CENTER
         windowManager.addView(controlsView, params)
     }
     
-    private fun toggleMonitoring(btn: Button) {
-        isMonitoring = !isMonitoring
-        if (isMonitoring) {
-            btn.text = "PAUSAR"; updateBubbleState(true); Toast.makeText(this, "Retomado", Toast.LENGTH_SHORT).show()
-        } else {
-            btn.text = "RETOMAR"; updateBubbleState(false); hideCard(); Toast.makeText(this, "Pausado", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    // --- 3. CARD ---
     private fun createInfoCard() {
-        infoCardView = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(30, 25, 30, 25)
-            visibility = View.GONE 
-            background = GradientDrawable().apply { setColor(Color.parseColor("#F20F172A")); cornerRadius = 40f; setStroke(2, Color.parseColor("#33FFFFFF")) }
-        }
+        infoCardView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(30, 25, 30, 25); visibility = View.GONE; background = GradientDrawable().apply { setColor(Color.parseColor("#F20F172A")); cornerRadius = 40f; setStroke(2, Color.parseColor("#33FFFFFF")) }; setOnClickListener { hideCard() } }
         tvValorTopo = TextView(this).apply { text = "R$ --"; textSize = 26f; setTextColor(Color.parseColor("#4ADE80")); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setShadowLayer(5f, 0f, 0f, Color.BLACK) }
         tvDadosMeio = TextView(this).apply { text = "--"; textSize = 14f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER; setPadding(0, 2, 0, 10) }
         tvResultadosBaixo = TextView(this).apply { text = "--"; textSize = 18f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }
         tvDicaAcao = TextView(this).apply { text = "..."; textSize = 13f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(10, 5, 10, 5); layoutParams = LinearLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER_HORIZONTAL; setMargins(0, 15, 0, 0) } }
         infoCardView!!.addView(tvValorTopo); infoCardView!!.addView(tvDadosMeio); infoCardView!!.addView(tvResultadosBaixo); infoCardView!!.addView(tvDicaAcao)
         val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
-        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; params.y = 80; params.width = (resources.displayMetrics.widthPixels * 0.90).toInt()
+        
+        // POSIÇÃO FIXA NO TOPO (Importante para a máscara saber onde cortar)
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; params.y = 80; 
+        params.width = (resources.displayMetrics.widthPixels * 0.90).toInt()
         windowManager.addView(infoCardView, params)
     }
 
+    private fun toggleMonitoring(btn: Button) {
+        isMonitoring = !isMonitoring
+        if (isMonitoring) { btn.text = "PAUSAR"; iconView?.alpha = 1.0f; Toast.makeText(this, "Retomado", Toast.LENGTH_SHORT).show() }
+        else { btn.text = "RETOMAR"; iconView?.alpha = 0.5f; hideCard(); Toast.makeText(this, "Pausado", Toast.LENGTH_SHORT).show() }
+    }
     private fun showControls() { bubbleView?.visibility = View.GONE; controlsView?.visibility = View.VISIBLE }
     private fun hideControls() { controlsView?.visibility = View.GONE; bubbleView?.visibility = View.VISIBLE }
     
     private fun showCard(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double) {
         Handler(Looper.getMainLooper()).post {
             bubbleView?.visibility = View.GONE; controlsView?.visibility = View.GONE; infoCardView?.visibility = View.VISIBLE
-            
             tvValorTopo.text = String.format("R$ %.2f", price)
             tvDadosMeio.text = String.format("%.1f km  •  %.0f min", dist, time)
             tvResultadosBaixo.text = String.format("R$ %.2f/km • R$ %.2f/h", valKm, valHora)
-            
-            val color: Int; val message: String
-            val bgDica = GradientDrawable().apply { cornerRadius = 15f }
+            val color: Int; val message: String; val bgDica = GradientDrawable().apply { cornerRadius = 15f }
             if (valKm >= minKm) { color = Color.parseColor("#4ADE80"); message = "BOA! ACEITA LOGO 🚀"; bgDica.setColor(Color.parseColor("#334ADE80")) }
             else if (valKm >= (minKm * 0.75)) { color = Color.parseColor("#FACC15"); message = "MÉDIA. ANALISE BEM 🤔"; bgDica.setColor(Color.parseColor("#33FACC15")) }
             else { color = Color.parseColor("#F87171"); message = "PREJUÍZO! PULA FORA 🛑"; bgDica.setColor(Color.parseColor("#33F87171")) }
-            
-            tvResultadosBaixo.setTextColor(color)
-            tvDicaAcao.text = message
-            tvDicaAcao.setTextColor(color)
-            tvDicaAcao.background = bgDica
+            tvResultadosBaixo.setTextColor(color); tvDicaAcao.text = message; tvDicaAcao.setTextColor(color); tvDicaAcao.background = bgDica
         }
     }
-    
     private fun hideCard() { Handler(Looper.getMainLooper()).post { if (infoCardView?.visibility == View.VISIBLE) { infoCardView?.visibility = View.GONE; bubbleView?.visibility = View.VISIBLE } } }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val resultCode = intent?.getIntExtra("RESULT_CODE", 0) ?: 0
         val resultData = intent?.getParcelableExtra<Intent>("RESULT_DATA")
-        if (mediaProjection != null) { isMonitoring = true; updateBubbleState(true); return START_STICKY }
+        if (mediaProjection != null) { isMonitoring = true; iconView?.alpha = 1.0f; return START_STICKY }
         if (resultCode != 0 && resultData != null) setupMediaProjection(resultCode, resultData)
         return START_STICKY
     }
@@ -298,7 +204,8 @@ class OcrService : Service() {
     private fun startOcrLoop() {
         scope.launch(Dispatchers.IO) {
             while (isServiceRunning) {
-                if (!isMonitoring) { delay(500); continue }
+                if (!isMonitoring) { delay(1000); continue }
+                
                 var image = try { imageReader?.acquireLatestImage() } catch (e: Exception) { null }
                 var hasValidData = false
                 
@@ -306,24 +213,38 @@ class OcrService : Service() {
                     try {
                         val planes = image.planes; val buffer = planes[0].buffer
                         val pixelStride = planes[0].pixelStride; val rowStride = planes[0].rowStride; val rowPadding = rowStride - pixelStride * screenWidth
-                        val fullBitmap = Bitmap.createBitmap(screenWidth + rowPadding / pixelStride, screenHeight, Bitmap.Config.ARGB_8888)
-                        fullBitmap.copyPixelsFromBuffer(buffer); image.close()
                         
-                        // Máscara 10% topo (ignorar janela se estiver lá)
-                        val cropY = (screenHeight * 0.10).toInt(); val cropHeight = screenHeight - cropY
-                        if (cropHeight > 0 && cropY < fullBitmap.height) {
-                            val croppedBitmap = Bitmap.createBitmap(fullBitmap, 0, cropY, screenWidth, cropHeight)
-                            val inputImage = InputImage.fromBitmap(croppedBitmap, 0)
-                            val task = recognizer.process(inputImage)
-                            while (!task.isComplete) { delay(20) }
-                            if (task.isSuccessful) hasValidData = analyzeScreen(task.result.text)
-                        }
+                        // 1. Converte para Bitmap
+                        val fullBitmap = Bitmap.createBitmap(screenWidth + rowPadding / pixelStride, screenHeight, Bitmap.Config.ARGB_8888)
+                        fullBitmap.copyPixelsFromBuffer(buffer)
+                        image.close()
+                        
+                        // 2. APLICA MÁSCARA DE SEGURANÇA (O PULO DO GATO)
+                        // Pintamos um retângulo PRETO sobre os 25% superiores da tela.
+                        // Isso garante que o OCR nunca leia a nossa janela flutuante.
+                        val canvas = Canvas(fullBitmap)
+                        val paint = Paint()
+                        paint.color = Color.BLACK
+                        paint.style = Paint.Style.FILL
+                        
+                        // Desenha o quadrado preto no topo (Cobre a janela)
+                        canvas.drawRect(0f, 0f, fullBitmap.width.toFloat(), fullBitmap.height * 0.25f, paint)
+
+                        // 3. Envia para IA
+                        val inputImage = InputImage.fromBitmap(fullBitmap, 0)
+                        val task = recognizer.process(inputImage)
+                        while (!task.isComplete) { delay(20) }
+                        if (task.isSuccessful) hasValidData = analyzeScreen(task.result.text)
+                        
                     } catch (e: Exception) { try { image.close() } catch (x: Exception) {} }
                 }
                 
+                // Timeout e Fechamento
                 if (!hasValidData) {
-                    val timeSince = System.currentTimeMillis() - lastValidReadTime
-                    if (timeSince > TIMEOUT_MS) hideCard()
+                    if (System.currentTimeMillis() - lastValidReadTime > TIMEOUT_MS) {
+                        hideCard()
+                        lastPrice = 0.0 // Reset para permitir reabertura
+                    }
                 }
                 delay(1000)
             }
@@ -331,66 +252,38 @@ class OcrService : Service() {
     }
 
     private fun analyzeScreen(rawText: String): Boolean {
-        // --- ZERA VARIÁVEIS A CADA FRAME (CORREÇÃO SOMA INFINITA) ---
-        var framePrice = 0.0
-        var frameDist = 0.0
-        var frameTime = 0.0
-
+        // --- VARIÁVEIS ZERADAS A CADA FRAME ---
+        var framePrice = 0.0; var frameDist = 0.0; var frameTime = 0.0
         val cleanText = rawText.replace("\\n", " ").replace("\\r", " ").lowercase()
         
-        // --- 1. Preço (Pega o Maior) ---
-        val pricePattern = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})")
-        val pm = pricePattern.matcher(cleanText)
-        while (pm.find()) {
-            val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
-            if (v > framePrice) framePrice = v
-        }
-
-        // --- 2. Distância (Reconhece METROS e KM) ---
-        // Ex: 500m -> 0.5km, 1.2km -> 1.2km
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)") 
-        val dm = distPattern.matcher(cleanText)
-        while (dm.find()) {
-            var valDist = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
-            val unit = dm.group(2)
-            if (unit == "m") valDist /= 1000.0 // Converte metros
-            
-            // Só soma se não for um valor absurdo (ex: erro de leitura > 200km)
-            if (valDist < 200) frameDist += valDist
-        }
-
-        // --- 3. Tempo (Reconhece HORAS e MINUTOS) ---
-        // Padrão "1h 20min"
-        val timeHourPattern = Pattern.compile("([0-9]+)\\\\s*h\\\\s*(?:([0-9]+)\\\\s*min)?")
-        val thm = timeHourPattern.matcher(cleanText)
-        while (thm.find()) {
-            val h = thm.group(1)?.toIntOrNull() ?: 0
-            val m = thm.group(2)?.toIntOrNull() ?: 0
-            frameTime += (h * 60) + m
+        // Regex
+        val pm = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
+        while (pm.find()) { val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
+        
+        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)").matcher(cleanText)
+        while (dm.find()) { 
+            var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+            if (dm.group(2) == "m") d /= 1000.0 
+            if (d < 200) frameDist += d 
         }
         
-        // Padrão "30 min" (só soma se não pegou no padrão de hora para evitar duplicidade, ou usamos lógica de maior)
-        // Simplificação: Se achou horas, confia nas horas. Se não, procura minutos avulsos.
-        if (frameTime == 0.0) {
-            val minPattern = Pattern.compile("([0-9]+)\\\\s*min")
-            val mm = minPattern.matcher(cleanText)
-            while (mm.find()) {
-                frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0
-            }
+        val tm = Pattern.compile("([0-9]+)\\\\s*h\\\\s*(?:([0-9]+)\\\\s*min)?").matcher(cleanText)
+        while (tm.find()) { frameTime += ((tm.group(1)?.toIntOrNull()?:0)*60) + (tm.group(2)?.toIntOrNull()?:0) }
+        if (frameTime == 0.0) { 
+            val mm = Pattern.compile("([0-9]+)\\\\s*min").matcher(cleanText)
+            while (mm.find()) frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0 
         }
 
-        // --- DECISÃO ---
+        // Se achou dados
         if (framePrice > 0.0 && (frameDist > 0.0 || frameTime > 0.0)) {
             lastValidReadTime = System.currentTimeMillis()
             
-            // Se mudou -> Atualiza (Substitui, não soma)
-            if (isDifferent(framePrice, frameDist)) {
-                lastPrice = framePrice
-                lastDist = frameDist
+            // Só atualiza se for NOVO (Substituição)
+            if (abs(framePrice - lastPrice) > 0.1 || abs(frameDist - lastDist) > 0.1) {
+                lastPrice = framePrice; lastDist = frameDist
                 
                 val valPerKm = if (frameDist > 0) framePrice / frameDist else 0.0
                 val valPerHour = if (frameTime > 0) (framePrice / frameTime) * 60 else 0.0
-                
                 showCard(framePrice, frameDist, frameTime, valPerKm, valPerHour)
                 
                 // Broadcast
@@ -403,8 +296,6 @@ class OcrService : Service() {
         return false
     }
 
-    private fun isDifferent(p: Double, d: Double): Boolean { return (abs(p - lastPrice) > 0.1 || abs(d - lastDist) > 0.1) }
-
     override fun onDestroy() {
         super.onDestroy(); isServiceRunning = false
         try { if (bubbleView != null) windowManager.removeView(bubbleView); if (infoCardView != null) windowManager.removeView(infoCardView); if (controlsView != null) windowManager.removeView(controlsView) } catch (e: Exception) {}
@@ -414,12 +305,12 @@ class OcrService : Service() {
 }
 """
 
-print("--- Atualizando: Bolha Móvel, Unidades e Fix Soma ---")
+print("--- Aplicando Máscara de Segurança e Correções ---")
 create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
 
 print("\nExecute:")
 print("1. git add .")
-print("2. git commit -m 'Feat: Movable Bubble and Unit Logic'")
+print("2. git commit -m 'Fix: Safety Mask and Logic'")
 print("3. git push")
 
 
