@@ -245,7 +245,7 @@ class OcrService : Service() {
         val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
         
         // Regex
-        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
+        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+(?:[.,][0-9]{0,2})?)").matcher(cleanText)
         while (pm.find()) { val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
         
         val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)").matcher(cleanText)
