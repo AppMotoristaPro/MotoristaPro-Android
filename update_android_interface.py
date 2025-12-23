@@ -1,3 +1,15 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- MAIN ACTIVITY (Com JS Interface e Sem Botão Flutuante) ---
+main_activity_content = """
 package com.motoristapro.android
 
 import android.content.BroadcastReceiver
@@ -132,3 +144,14 @@ class MainActivity : AppCompatActivity() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(ocrReceiver)
     }
 }
+"""
+
+print("--- Removendo Botão Flutuante e Adicionando Ponte JS ---")
+create_file("app/src/main/java/com/motoristapro/android/MainActivity.kt", main_activity_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'UI: Move Activation Button to Web'")
+print("3. git push")
+
+
