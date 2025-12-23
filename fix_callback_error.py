@@ -1,3 +1,16 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- OCR SERVICE (Com Callback Obrigatório) ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -230,7 +243,7 @@ class OcrService : Service() {
     private fun processText(rawText: String) {
         // Regex simplificada para teste
         // Procura qualquer formato monetário
-        val pricePattern = Pattern.compile("R\\$\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
+        val pricePattern = Pattern.compile("R\\\\$\\\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
         val matcher = pricePattern.matcher(rawText)
         
         if (matcher.find()) {
@@ -238,7 +251,7 @@ class OcrService : Service() {
             updateUI("ACHEI: R$ $valor")
         } else {
             // Mostra os primeiros 30 caracteres lidos para debug
-            val sample = rawText.replace("\n", " ").take(30)
+            val sample = rawText.replace("\\n", " ").take(30)
             updateUI("Lendo: $sample...")
         }
     }
@@ -264,3 +277,14 @@ class OcrService : Service() {
         try { recognizer.close() } catch (e: Exception) {}
     }
 }
+"""
+
+print("--- Adicionando Callback Obrigatório ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Register MediaProjection Callback'")
+print("3. git push")
+
+
