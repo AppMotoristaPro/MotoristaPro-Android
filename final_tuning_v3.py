@@ -1,3 +1,61 @@
+import os
+import shutil
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# ==============================================================================
+# 1. CAÇADOR DE ÍCONES (Busca Profunda)
+# ==============================================================================
+SEARCH_DIR = "../motoristaproteste" 
+TARGET_NAMES = ["icon-512.png", "icon.png", "logo.png"]
+FOUND_ICON = None
+
+print("--- 1. Buscando Ícone no Site ---")
+for root, dirs, files in os.walk(SEARCH_DIR):
+    for target in TARGET_NAMES:
+        if target in files:
+            FOUND_ICON = os.path.join(root, target)
+            print(f"ENCONTRADO: {FOUND_ICON}")
+            break
+    if FOUND_ICON: break
+
+if FOUND_ICON:
+    # 1. Copia para Drawable (Uso interno)
+    dest_drawable = "app/src/main/res/drawable/ic_launcher_foreground.png"
+    os.makedirs(os.path.dirname(dest_drawable), exist_ok=True)
+    if os.path.exists("app/src/main/res/drawable/ic_launcher_foreground.xml"):
+        os.remove("app/src/main/res/drawable/ic_launcher_foreground.xml") # Remove conflito
+    shutil.copy2(FOUND_ICON, dest_drawable)
+    
+    # 2. Copia para Mipmaps (Ícone do App no Menu) -> Isso remove o robozinho verde
+    mipmaps = [
+        "app/src/main/res/mipmap-mdpi/ic_launcher.png",
+        "app/src/main/res/mipmap-hdpi/ic_launcher.png",
+        "app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+        "app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+    ]
+    
+    for mip in mipmaps:
+        os.makedirs(os.path.dirname(mip), exist_ok=True)
+        shutil.copy2(FOUND_ICON, mip)
+        # Cria versão redonda também
+        shutil.copy2(FOUND_ICON, mip.replace("ic_launcher.png", "ic_launcher_round.png"))
+        
+    print("Ícone aplicado em todas as resoluções!")
+else:
+    print("ALERTA: Ícone não encontrado. O APK ficará com o padrão por enquanto.")
+
+# ==============================================================================
+# 2. OCR SERVICE (Loop 5s, Reset Variáveis, Toque Fechar)
+# ==============================================================================
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -237,14 +295,14 @@ class OcrService : Service() {
     private fun analyzeScreen(rawText: String): Boolean {
         // --- RESETA VARIÁVEIS DO FRAME ATUAL (Não soma com anterior) ---
         var framePrice = 0.0; var frameDist = 0.0; var frameTime = 0.0
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ").lowercase()
         
         // Padrão Preço
-        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
+        val pm = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})").matcher(cleanText)
         while (pm.find()) { val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
         
         // Padrão Distância (m/km)
-        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)").matcher(cleanText)
+        val dm = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)").matcher(cleanText)
         while (dm.find()) { 
             var d = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (dm.group(2) == "m") d /= 1000.0 // Converte metros
@@ -252,12 +310,12 @@ class OcrService : Service() {
         }
         
         // Padrão Tempo (h/min)
-        val tm = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?").matcher(cleanText)
+        val tm = Pattern.compile("([0-9]+)\\\\s*h\\\\s*(?:([0-9]+)\\\\s*min)?").matcher(cleanText)
         while (tm.find()) { 
             frameTime += ((tm.group(1)?.toIntOrNull()?:0)*60) + (tm.group(2)?.toIntOrNull()?:0)
         }
         if (frameTime == 0.0) { // Fallback minutos simples
-            val mm = Pattern.compile("([0-9]+)\\s*min").matcher(cleanText)
+            val mm = Pattern.compile("([0-9]+)\\\\s*min").matcher(cleanText)
             while (mm.find()) frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0
         }
 
@@ -288,3 +346,14 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+print("--- Aplicando Correção Final: Ícone e Loop 5s ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Icon and 5s Loop Logic'")
+print("3. git push")
+
+
