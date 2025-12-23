@@ -1,3 +1,40 @@
+import os
+import shutil
+import re
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# ==============================================================================
+# 1. CORREÇÃO DO ÍCONE (FORÇA BRUTA)
+# ==============================================================================
+# Vamos procurar o ícone no projeto vizinho e copiar para o Android
+SITE_ICON_PATH = "../motoristaproteste/app/static/icons/icon.png" # Ajuste se o nome for diferente (logo.png, etc)
+ANDROID_DRAWABLE = "app/src/main/res/drawable/ic_launcher_foreground.png"
+
+print("--- 1. Aplicando Ícone do Motorista Pro ---")
+if os.path.exists(SITE_ICON_PATH):
+    # Remove XML conflitante se existir
+    xml_conflic = "app/src/main/res/drawable/ic_launcher_foreground.xml"
+    if os.path.exists(xml_conflic):
+        os.remove(xml_conflic)
+    
+    # Copia o PNG
+    shutil.copy2(SITE_ICON_PATH, ANDROID_DRAWABLE)
+    print(f"Ícone copiado de {SITE_ICON_PATH} para o App.")
+else:
+    print(f"ALERTA: Não achei o ícone em {SITE_ICON_PATH}.")
+    print("Certifique-se de que existe um arquivo 'icon.png' na pasta 'app/static/icons' do site.")
+
+# ==============================================================================
+# 2. OCR SERVICE (Lógica Inteligente de Unidades e Reset)
+# ==============================================================================
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -288,7 +325,7 @@ class OcrService : Service() {
 
     private fun analyzeScreen(rawText: String): Boolean {
         // --- 1. NORMALIZAÇÃO ---
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ").lowercase()
         
         var framePrice = 0.0
         var frameDist = 0.0
@@ -297,7 +334,7 @@ class OcrService : Service() {
         // --- 2. EXTRAÇÃO INTELIGENTE (Metros e Horas) ---
         
         // Preço: R$ 10,00
-        val pricePattern = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+[.,][0-9]{2})")
+        val pricePattern = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})")
         val pm = pricePattern.matcher(cleanText)
         while (pm.find()) {
             val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -306,7 +343,7 @@ class OcrService : Service() {
 
         // Distância: 500 m ou 10.5 km
         // Grupo 1: Valor, Grupo 2: Unidade (km ou m)
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)") 
+        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)") 
         val dm = distPattern.matcher(cleanText)
         while (dm.find()) {
             var valDist = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -322,7 +359,7 @@ class OcrService : Service() {
         // Tempo: 1 h 20 min ou 30 min
         // Regex complexa para pegar horas e minutos juntos ou separados
         // Padrão A: "1 h 20 min" ou "1h20min"
-        val timeComplexPattern = Pattern.compile("([0-9]+)\\s*h(?:\\s*([0-9]+)\\s*min)?")
+        val timeComplexPattern = Pattern.compile("([0-9]+)\\\\s*h(?:\\\\s*([0-9]+)\\\\s*min)?")
         val tcm = timeComplexPattern.matcher(cleanText)
         var timeFoundInComplex = false
         
@@ -337,7 +374,7 @@ class OcrService : Service() {
         // Ignora se já estiver contido num padrão de hora, mas para simplificar, somamos tudo.
         // O ideal é não somar duplicado. Vamos usar uma abordagem de varredura simples.
         if (!timeFoundInComplex) {
-            val minPattern = Pattern.compile("([0-9]+)\\s*min")
+            val minPattern = Pattern.compile("([0-9]+)\\\\s*min")
             val mm = minPattern.matcher(cleanText)
             while (mm.find()) {
                 frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0
@@ -381,3 +418,14 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+print("--- Atualizando: Unidades (m/h), Bolha Transparente, Timeout 3s ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Release: Smart Units and Transparent Bubble'")
+print("3. git push")
+
+
