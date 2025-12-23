@@ -1,3 +1,15 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Corrigido: {path}")
+
+# --- OCR SERVICE CORRIGIDO (Variáveis de Classe) ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -318,10 +330,10 @@ class OcrService : Service() {
 
     private fun analyzeScreen(rawText: String): Boolean {
         var framePrice = 0.0; var frameDist = 0.0; var frameTime = 0.0
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ")
-        val pricePattern = Pattern.compile("(R\\$|RS|\\$)\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
-        val timePattern = Pattern.compile("([0-9]+)\\s*(min)", Pattern.CASE_INSENSITIVE)
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ")
+        val pricePattern = Pattern.compile("(R\\\\$|RS|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})", Pattern.CASE_INSENSITIVE)
+        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|xm)", Pattern.CASE_INSENSITIVE)
+        val timePattern = Pattern.compile("([0-9]+)\\\\s*(min)", Pattern.CASE_INSENSITIVE)
         val pm = pricePattern.matcher(cleanText); 
         while (pm.find()) { val v = pm.group(2)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0; if (v > framePrice) framePrice = v }
         val dm = distPattern.matcher(cleanText); 
@@ -354,3 +366,14 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+print("--- OCR Service Compilável (Fixed) ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Fix: Compilation Error'")
+print("3. git push")
+
+
