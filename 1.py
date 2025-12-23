@@ -1,3 +1,15 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- OCR SERVICE (Móvel, Transparente, Lógica Correta) ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -324,10 +336,10 @@ class OcrService : Service() {
         var frameDist = 0.0
         var frameTime = 0.0
 
-        val cleanText = rawText.replace("\n", " ").replace("\r", " ").lowercase()
+        val cleanText = rawText.replace("\\n", " ").replace("\\r", " ").lowercase()
         
         // --- 1. Preço (Pega o Maior) ---
-        val pricePattern = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+[.,][0-9]{2})")
+        val pricePattern = Pattern.compile("(?:r\\\\$|rs|\\\\$)\\\\s*([0-9]+[.,][0-9]{2})")
         val pm = pricePattern.matcher(cleanText)
         while (pm.find()) {
             val v = pm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -336,7 +348,7 @@ class OcrService : Service() {
 
         // --- 2. Distância (Reconhece METROS e KM) ---
         // Ex: 500m -> 0.5km, 1.2km -> 1.2km
-        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\s*(km|m)(?!in)") 
+        val distPattern = Pattern.compile("([0-9]+[.,]?[0-9]*)\\\\s*(km|m)(?!in)") 
         val dm = distPattern.matcher(cleanText)
         while (dm.find()) {
             var valDist = dm.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -349,7 +361,7 @@ class OcrService : Service() {
 
         // --- 3. Tempo (Reconhece HORAS e MINUTOS) ---
         // Padrão "1h 20min"
-        val timeHourPattern = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?")
+        val timeHourPattern = Pattern.compile("([0-9]+)\\\\s*h\\\\s*(?:([0-9]+)\\\\s*min)?")
         val thm = timeHourPattern.matcher(cleanText)
         while (thm.find()) {
             val h = thm.group(1)?.toIntOrNull() ?: 0
@@ -360,7 +372,7 @@ class OcrService : Service() {
         // Padrão "30 min" (só soma se não pegou no padrão de hora para evitar duplicidade, ou usamos lógica de maior)
         // Simplificação: Se achou horas, confia nas horas. Se não, procura minutos avulsos.
         if (frameTime == 0.0) {
-            val minPattern = Pattern.compile("([0-9]+)\\s*min")
+            val minPattern = Pattern.compile("([0-9]+)\\\\s*min")
             val mm = minPattern.matcher(cleanText)
             while (mm.find()) {
                 frameTime += mm.group(1)?.toDoubleOrNull() ?: 0.0
@@ -400,3 +412,14 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+print("--- Atualizando: Bolha Móvel, Unidades e Fix Soma ---")
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Feat: Movable Bubble and Unit Logic'")
+print("3. git push")
+
+
