@@ -1,3 +1,58 @@
+import os
+
+def create_file(path, content):
+    dir_name = os.path.dirname(path)
+    if dir_name and not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content.strip())
+    print(f"Atualizado: {path}")
+
+# --- 1. GARANTIA DO MANIFESTO (Permissões Críticas) ---
+manifest_content = """
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:label="Motorista Pro"
+        android:roundIcon="@drawable/ic_launcher_foreground"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+        tools:targetApi="31">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service 
+            android:name=".OcrService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+    </application>
+
+</manifest>
+"""
+
+# --- 2. OCR SERVICE DIAGNÓSTICO (Toasts + Fundo Vermelho) ---
+ocr_service_content = """
 package com.motoristapro.android
 
 import android.app.*
@@ -240,3 +295,15 @@ class OcrService : Service() {
         try { recognizer.close() } catch (e: Exception) {}
     }
 }
+"""
+
+print("--- Aplicando Modo Diagnóstico (Janela Vermelha) ---")
+create_file("app/src/main/AndroidManifest.xml", manifest_content)
+create_file("app/src/main/java/com/motoristapro/android/OcrService.kt", ocr_service_content)
+
+print("\nExecute:")
+print("1. git add .")
+print("2. git commit -m 'Debug: Janela Vermelha e Toasts'")
+print("3. git push")
+
+

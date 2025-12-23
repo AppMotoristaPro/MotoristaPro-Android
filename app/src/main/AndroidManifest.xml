@@ -5,7 +5,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- Necessário para gravar a tela -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <application
@@ -28,7 +27,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Serviço de OCR -->
         <service 
             android:name=".OcrService"
             android:enabled="true"
