@@ -152,7 +152,7 @@ class OcrService : Service() {
         
         // POSIÇÃO FIXA NO TOPO (Importante para a máscara saber onde cortar)
         params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; params.y = 80; 
-        params.width = (resources.displayMetrics.widthPixels * 0.90).toInt()
+        params.width = (resources.displayMetrics.widthPixels * 0.65).toInt()
         windowManager.addView(infoCardView, params)
     }
 
@@ -252,43 +252,50 @@ class OcrService : Service() {
 
     
     
+    
     private fun analyzeScreen(rawText: String): Boolean {
-        // 1. LIMPEZA ESPECIAL (Solicitação do usuário)
-        // Remove avisos de rodapé como "Viagem longa (mais de 30 min)"
-        // Removemos isso ANTES de qualquer busca numérica
+        // LIMPEZA PRÉVIA (CRÍTICO)
+        // Removemos padrões que confundem o robô ANTES de buscar números.
+        // 1. Remove "+R$ ..." (taxas incluídas)
+        // 2. Remove "/km" (preço por km informativo)
+        // 3. Remove "mais de 30 min" (aviso de viagem longa)
         var cleanText = rawText.lowercase()
+            .replace(Regex("\\+\\s*r\\$\\s*[0-9.,]+"), "") 
+            .replace(Regex("r\\$\\s*[0-9.,]+\\s*/\\s*km"), "")
             .replace("mais de 30 min", "")
             .replace("mais de 30min", "")
-            .replace("longa", "") 
-            .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ") // Limpa caracteres estranhos
+            .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
 
         val prices = ArrayList<Double>()
         val dists = ArrayList<Double>()
         val times = ArrayList<Double>()
 
-        // 2. PREÇOS (R$)
-        // Aceita formatos: R$ 10, 10,50, 10.5
+        // A. EXTRAIR PREÇOS (R$)
         val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+(?:[.,][0-9]{0,2})?)")
         val matP = pm.matcher(cleanText)
         while (matP.find()) {
             val v = matP.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
-            // Filtro de segurança: ignora taxas de cancelamento (~4.00) e erros (>2000)
             if (v > 4.5 && v < 2000.0) prices.add(v)
         }
 
-        // 3. DISTÂNCIAS (KM)
+        // B. EXTRAIR DISTÂNCIAS (KM ou M)
+        // O grupo 2 captura a unidade (km ou m)
         val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\\s*(km|m)(?!in)")
         val matD = dm.matcher(cleanText)
         while (matD.find()) {
             var d = matD.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             val unit = matD.group(2)
-            if (unit == "m") d /= 1000.0
-            // Filtro de segurança: distâncias > 0.1km e < 400km
-            if (d > 0.1 && d < 400.0) dists.add(d)
+            
+            // CONVERSÃO DE METROS
+            if (unit == "m") {
+                d /= 1000.0 // Ex: 500m vira 0.5 km
+            }
+            
+            // Filtro: Aceita corridas curtas (0.1km) até 400km
+            if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        // 4. TEMPO (HORAS E MINUTOS - REFINADO)
-        // Regex para capturar horas: "1 h 10 min", "1h", "2 h"
+        // C. EXTRAIR TEMPOS (H e MIN)
         val tmH = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
@@ -298,10 +305,9 @@ class OcrService : Service() {
             if (totalMinutes > 0) times.add(totalMinutes.toDouble())
         }
         
-        // Removemos do texto o que já foi lido como hora para não duplicar na leitura de minutos
+        // Remove horas lidas para não duplicar minutos
         cleanText = matH.replaceAll(" ") 
 
-        // Regex para capturar minutos restantes: "45 min", "10 min"
         val tmM = Pattern.compile("([0-9]+)\\s*min")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
@@ -309,9 +315,8 @@ class OcrService : Service() {
             if (m > 0) times.add(m)
         }
 
-        // --- HIERARQUIA ESTRITA ---
-        
-        // Regra: Precisamos de pelo menos 2 tempos e 2 distâncias (Viagem + Busca)
+        // --- LÓGICA ESTRITA ---
+        // Exige pelo menos 2 tempos e 2 distâncias (Viagem + Busca)
         if (prices.isEmpty() || dists.size < 2 || times.size < 2) {
             return false 
         }
@@ -321,7 +326,6 @@ class OcrService : Service() {
         dists.sortDescending()
         times.sortDescending()
 
-        // Pegamos os valores (Lógica: Soma dos 2 maiores para Tempo/Dist, Maior valor para Preço)
         val finalPrice = prices[0]
         val finalDist = dists[0] + dists[1]
         val finalTime = times[0] + times[1]
@@ -329,7 +333,6 @@ class OcrService : Service() {
         if (finalPrice > 0 && finalDist > 0 && finalTime > 0) {
             lastValidReadTime = System.currentTimeMillis()
 
-            // Só atualiza se mudar algo relevante (estabilidade visual)
             if (Math.abs(finalPrice - lastPrice) > 0.1 || Math.abs(finalDist - lastDist) > 0.1) {
                 lastPrice = finalPrice
                 lastDist = finalDist
