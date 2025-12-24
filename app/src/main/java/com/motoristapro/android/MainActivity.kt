@@ -60,6 +60,18 @@ class MainActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
         webView.settings.userAgentString = webView.settings.userAgentString + " MotoristaProApp"
+        
+        // --- HABILITAR DOWNLOADS ---
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            try {
+                val i = Intent(Intent.ACTION_VIEW)
+                i.data = Uri.parse(url)
+                startActivity(i)
+                Toast.makeText(this, "Iniciando download...", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Erro ao abrir download.", Toast.LENGTH_SHORT).show()
+            }
+        }
         webView.addJavascriptInterface(WebAppInterface(this), "MotoristaProAndroid")
 
         webView.webViewClient = object : WebViewClient() {
