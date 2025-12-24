@@ -81,7 +81,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        webView.loadUrl("https://refactored-space-tribble-v69ggpvvvj94hxprw-5000.app.github.dev")
+        
+        // --- CORREÇÃO DE DOWNLOAD ---
+        webView.setDownloadListener { url, _, _, _, _ ->
+            try {
+                val intent = Intent(Intent.ACTION_VIEW)
+                intent.data = Uri.parse(url)
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Erro ao abrir link", Toast.LENGTH_SHORT).show()
+            }
+        }
+    webView.loadUrl("https://refactored-space-tribble-v69ggpvvvj94hxprw-5000.app.github.dev")
         root.addView(webView)
 
         LocalBroadcastManager.getInstance(this).registerReceiver(ocrReceiver, IntentFilter("OCR_DATA_DETECTED"))
