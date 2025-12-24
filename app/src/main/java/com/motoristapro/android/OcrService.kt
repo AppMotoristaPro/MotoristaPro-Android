@@ -126,7 +126,41 @@ class OcrService : Service() {
         // -------------------------------------------------------
         val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
         params.gravity = Gravity.TOP or Gravity.START; params.x = 20; params.y = 300
-        bubbleLayout.setOnClickListener { showControls() }
+        
+        // --- TORNAR ARRASTÁVEL ---
+        bubbleLayout.setOnTouchListener(object : View.OnTouchListener {
+            private var initialX = 0
+            private var initialY = 0
+            private var initialTouchX = 0f
+            private var initialTouchY = 0f
+
+            override fun onTouch(v: View?, event: MotionEvent?): Boolean {
+                when (event!!.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = initialX + (event.rawX - initialTouchX).toInt()
+                        params.y = initialY + (event.rawY - initialTouchY).toInt()
+                        windowManager.updateViewLayout(bubbleView, params)
+                        return true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        // Se moveu menos de 10 pixels, considera um CLIQUE
+                        if (Math.abs(event.rawX - initialTouchX) < 10 && Math.abs(event.rawY - initialTouchY) < 10) {
+                            showControls()
+                        }
+                        return true
+                    }
+                }
+                return false
+            }
+        })
+    
         bubbleView = bubbleLayout
         windowManager.addView(bubbleView, params)
     }
