@@ -16,6 +16,8 @@ import android.media.projection.MediaProjectionManager
 import android.os.*
 import android.util.DisplayMetrics
 import android.view.*
+import android.view.ViewOutlineProvider
+import android.graphics.Outline
 import android.widget.*
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -110,17 +112,22 @@ class OcrService : Service() {
     private fun createBubble() {
         val bubbleLayout = FrameLayout(this)
         // --- NOVO DESIGN: Redondo, Branco e com Ícone do App ---
-        val bg = GradientDrawable()
-        bg.shape = GradientDrawable.OVAL
-        bg.setColor(Color.WHITE)
-        bg.setStroke(2, Color.parseColor("#2563EB")) // Azul do Site
-        bubbleLayout.background = bg
-        bubbleLayout.elevation = 20f
+        // --- DESIGN: Ícone Limpo e Circular ---
+        // Removemos qualquer fundo do container
+        bubbleLayout.background = null 
 
         iconView = ImageView(this)
-        // Usa o ícone do próprio APK (que você vai substituir manualmente)
         iconView!!.setImageResource(R.mipmap.ic_launcher_round)
-        iconView!!.setPadding(15, 15, 15, 15) // Margem interna para ficar bonito
+        iconView!!.scaleType = ImageView.ScaleType.CENTER_CROP
+        
+        // APLICA MÁSCARA CIRCULAR (Corta os cantos do PNG)
+        iconView!!.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                // Define a área de corte como um oval do tamanho da view
+                outline.setOval(0, 0, view.width, view.height)
+            }
+        }
+        iconView!!.clipToOutline = true // Ativa o corte
         
         bubbleLayout.addView(iconView, FrameLayout.LayoutParams(160, 160))
         // -------------------------------------------------------
