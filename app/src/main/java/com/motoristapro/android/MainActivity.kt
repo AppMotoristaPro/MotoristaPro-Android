@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Erro ao abrir link", Toast.LENGTH_SHORT).show()
             }
         }
-    webView.loadUrl("https://refactored-space-tribble-v69ggpvvvj94hxprw-5000.app.github.dev")
+    webView.loadUrl("https://special-orbit-97rqq6999x66c956v-5000.app.github.dev")
         root.addView(webView)
 
         LocalBroadcastManager.getInstance(this).registerReceiver(ocrReceiver, IntentFilter("OCR_DATA_DETECTED"))
