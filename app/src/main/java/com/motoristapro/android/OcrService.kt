@@ -512,11 +512,11 @@ class OcrService : Service() {
     }
 
     // --- FASE 1: LÓGICA ESTRITA DO ROBÔ ---
+    
     private fun analyzeScreen(rawText: String): Boolean {
-        // Limpeza e Filtros
+        // Limpeza básica
         var cleanText = rawText.lowercase()
             .replace(Regex("\\+\\s*r\\$\\s*[0-9.,]+"), "") 
-            .replace(Regex("r\\$\\s*[0-9.,]+\\s*/\\s*km"), "")
             .replace("mais de 30 min", "")
             .replace("mais de 30min", "")
             .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
@@ -525,6 +525,7 @@ class OcrService : Service() {
         val dists = ArrayList<Double>()
         val times = ArrayList<Double>()
 
+        // 1. PREÇOS
         val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+(?:[.,][0-9]{0,2})?)")
         val matP = pm.matcher(cleanText)
         while (matP.find()) {
@@ -532,6 +533,7 @@ class OcrService : Service() {
             if (v > 4.5 && v < 2000.0) prices.add(v)
         }
 
+        // 2. DISTÂNCIAS
         val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\\s*(km|m)(?!in)")
         val matD = dm.matcher(cleanText)
         while (matD.find()) {
@@ -541,16 +543,23 @@ class OcrService : Service() {
             if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        val tmH = Pattern.compile("([0-9]+)\\s*h\\s*(?:([0-9]+)\\s*min)?")
+        // 3. TEMPOS (LÓGICA AVANÇADA DE HORAS)
+        
+        // A. Primeiro, captura horas explícitas (Ex: "1h", "2 h") e converte para minutos
+        val tmH = Pattern.compile("([0-9]+)\\s*h")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
             val h = matH.group(1)?.toIntOrNull() ?: 0
-            val m = matH.group(2)?.toIntOrNull() ?: 0
-            val totalMinutes = (h * 60) + m
-            if (totalMinutes > 0) times.add(totalMinutes.toDouble())
+            if (h > 0) {
+                times.add((h * 60).toDouble()) // Converte 1h -> 60, 2h -> 120
+            }
         }
+        
+        // Remove o que já foi lido como hora para não confundir com minutos
+        // (Ex: para não ler o "1" de "1h" como minuto depois)
         cleanText = matH.replaceAll(" ") 
 
+        // B. Captura minutos restantes (Ex: "20 min", "5 min")
         val tmM = Pattern.compile("([0-9]+)\\s*min")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
@@ -558,18 +567,35 @@ class OcrService : Service() {
             if (m > 0) times.add(m)
         }
 
-        // Regra de Ouro: 2 Tempos e 2 Distâncias
-        if (prices.isEmpty() || dists.size < 2 || times.size < 2) {
-            return false 
-        }
+        // --- VALIDAÇÃO ---
+        
+        // Precisa de pelo menos 1 preço
+        if (prices.isEmpty()) return false
+        
+        // Precisa de pelo menos 2 distâncias (Viagem + Busca)
+        if (dists.size < 2) return false
+        
+        // Precisa de pelo menos 2 tempos (mas idealmente 3 se tiver hora quebrada)
+        if (times.size < 2) return false
 
+        // Ordenar decrescente (Maiores primeiro)
         prices.sortDescending()
         dists.sortDescending()
         times.sortDescending()
 
         val finalPrice = prices[0]
+        
+        // Distância: Soma as 2 maiores (Viagem + Busca)
         val finalDist = dists[0] + dists[1]
-        val finalTime = times[0] + times[1]
+        
+        // Tempo: Soma os 3 maiores (se houver), senão soma os 2 maiores
+        // Isso cobre o caso: Busca(5) + ViagemHora(60) + ViagemMin(20) = 85 min
+        var finalTime = 0.0
+        if (times.size >= 3) {
+            finalTime = times[0] + times[1] + times[2]
+        } else {
+            finalTime = times[0] + times[1]
+        }
 
         if (finalPrice > 0 && finalDist > 0 && finalTime > 0) {
             lastValidReadTime = System.currentTimeMillis()
@@ -581,17 +607,17 @@ class OcrService : Service() {
                 val valPerKm = if (finalDist > 0) finalPrice / finalDist else 0.0
                 val valPerHour = if (finalTime > 0) (finalPrice / finalTime) * 60 else 0.0
 
-                // LÓGICA ESTRITA (Cores Híbridas)
-                var color = Color.parseColor("#FACC15") // Amarelo
+                // CORES
+                var color = Color.parseColor("#FACC15")
                 var message = "MÉDIA. ANALISE BEM 🤔"
                 var bgAlpha = "#33FACC15"
 
                 if (valPerKm >= goodKm && valPerHour >= goodHour) {
-                    color = Color.parseColor("#4ADE80") // Verde
+                    color = Color.parseColor("#4ADE80")
                     message = "BOA! ACEITA LOGO 🚀"
                     bgAlpha = "#334ADE80"
                 } else if (valPerKm <= badKm && valPerHour <= badHour) {
-                    color = Color.parseColor("#F87171") // Vermelho
+                    color = Color.parseColor("#F87171")
                     message = "PREJUÍZO! PULA FORA 🛑"
                     bgAlpha = "#33F87171"
                 }
