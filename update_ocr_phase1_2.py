@@ -1,4 +1,21 @@
-package com.motoristapro.android
+import os
+import subprocess
+
+def find_file(name, path="."):
+    for root, dirs, files in os.walk(path):
+        if name in files: return os.path.join(root, name)
+    return None
+
+def main():
+    print("🚀 Iniciando FASES 1 e 2: Reconstrução do OCR e Interface...")
+    
+    file_path = find_file("OcrService.kt")
+    if not file_path:
+        print("❌ Erro Crítico: OcrService.kt não encontrado.")
+        return
+
+    # Código Completo Blindado (v2.0)
+    full_code = r"""package com.motoristapro.android
 
 import android.app.*
 import android.content.BroadcastReceiver
@@ -616,3 +633,18 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(full_code)
+        
+    print("✅ Fases 1 e 2 aplicadas com sucesso! Arquivo reconstruído.")
+    
+    # Git Push
+    os.system('git add .')
+    os.system('git commit -m "Feat: Phase 1 & 2 Completed (Core & UI)"')
+    os.system('git push')
+
+if __name__ == "__main__":
+    main()
+
+
