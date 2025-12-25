@@ -11,8 +11,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26 // MediaProjection requer minSdk mais alto para funcionar bem
         targetSdk = 34
-        versionCode = 1766695878
-        versionName = "2.0.1766695878"
+        versionCode = 1766696857
+        versionName = "2.0.1766696857"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

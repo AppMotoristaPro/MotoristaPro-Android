@@ -513,6 +513,7 @@ class OcrService : Service() {
 
     // --- FASE 1: LÓGICA ESTRITA DO ROBÔ ---
     
+    
     private fun analyzeScreen(rawText: String): Boolean {
         // Limpeza básica
         var cleanText = rawText.lowercase()
@@ -543,24 +544,23 @@ class OcrService : Service() {
             if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        // 3. TEMPOS (LÓGICA AVANÇADA DE HORAS)
+        // 3. TEMPOS (Correção 1h -> 60min)
         
-        // A. Primeiro, captura horas explícitas (Ex: "1h", "2 h") e converte para minutos
-        val tmH = Pattern.compile("([0-9]+)\\s*h")
+        // A. Captura Horas (h, hr, hrs)
+        val tmH = Pattern.compile("([0-9]+)\\s*(?:h|hr|hrs|hora)")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
             val h = matH.group(1)?.toIntOrNull() ?: 0
             if (h > 0) {
-                times.add((h * 60).toDouble()) // Converte 1h -> 60, 2h -> 120
+                times.add((h * 60).toDouble()) // Converte para minutos
             }
         }
         
-        // Remove o que já foi lido como hora para não confundir com minutos
-        // (Ex: para não ler o "1" de "1h" como minuto depois)
+        // Remove as horas encontradas para não confundir com minutos soltos
         cleanText = matH.replaceAll(" ") 
 
-        // B. Captura minutos restantes (Ex: "20 min", "5 min")
-        val tmM = Pattern.compile("([0-9]+)\\s*min")
+        // B. Captura Minutos (min, m)
+        val tmM = Pattern.compile("([0-9]+)\\s*(?:min|m)(?!in)")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
             val m = matM.group(1)?.toDoubleOrNull() ?: 0.0
@@ -568,28 +568,26 @@ class OcrService : Service() {
         }
 
         // --- VALIDAÇÃO ---
-        
-        // Precisa de pelo menos 1 preço
         if (prices.isEmpty()) return false
         
-        // Precisa de pelo menos 2 distâncias (Viagem + Busca)
+        // Exige pelo menos 2 distâncias (Viagem + Busca)
         if (dists.size < 2) return false
         
-        // Precisa de pelo menos 2 tempos (mas idealmente 3 se tiver hora quebrada)
+        // Exige pelo menos 2 tempos (Viagem + Busca)
+        // OBS: Se tivermos "1h" e "20min", isso conta como 2 tempos na lista 'times', então ok.
         if (times.size < 2) return false
 
-        // Ordenar decrescente (Maiores primeiro)
+        // Ordenar decrescente
         prices.sortDescending()
         dists.sortDescending()
         times.sortDescending()
 
         val finalPrice = prices[0]
-        
-        // Distância: Soma as 2 maiores (Viagem + Busca)
         val finalDist = dists[0] + dists[1]
         
-        // Tempo: Soma os 3 maiores (se houver), senão soma os 2 maiores
-        // Isso cobre o caso: Busca(5) + ViagemHora(60) + ViagemMin(20) = 85 min
+        // SOMA DE TEMPOS (Correção: Soma até 3 valores)
+        // Ex: 1h (60) + 20min (20) + Busca (5) = 85
+        // A lista times estaria ordenada: [60, 20, 5]
         var finalTime = 0.0
         if (times.size >= 3) {
             finalTime = times[0] + times[1] + times[2]
@@ -607,17 +605,17 @@ class OcrService : Service() {
                 val valPerKm = if (finalDist > 0) finalPrice / finalDist else 0.0
                 val valPerHour = if (finalTime > 0) (finalPrice / finalTime) * 60 else 0.0
 
-                // CORES
-                var color = Color.parseColor("#FACC15")
+                // CORES HÍBRIDAS
+                var color = Color.parseColor("#FACC15") // Amarelo
                 var message = "MÉDIA. ANALISE BEM 🤔"
                 var bgAlpha = "#33FACC15"
 
                 if (valPerKm >= goodKm && valPerHour >= goodHour) {
-                    color = Color.parseColor("#4ADE80")
+                    color = Color.parseColor("#4ADE80") // Verde
                     message = "BOA! ACEITA LOGO 🚀"
                     bgAlpha = "#334ADE80"
                 } else if (valPerKm <= badKm && valPerHour <= badHour) {
-                    color = Color.parseColor("#F87171")
+                    color = Color.parseColor("#F87171") // Vermelho
                     message = "PREJUÍZO! PULA FORA 🛑"
                     bgAlpha = "#33F87171"
                 }
