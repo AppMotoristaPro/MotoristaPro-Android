@@ -1,4 +1,133 @@
-<?xml version="1.0" encoding="utf-8"?>
+import os
+
+def write_file(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Design Aplicado: {path}")
+
+def main():
+    print("🎨 Iniciando Reforma Visual Completa (Web -> Nativo)...")
+
+    res_values = "app/src/main/res/values"
+    res_drawable = "app/src/main/res/drawable"
+    res_layout = "app/src/main/res/layout"
+
+    # ==========================================================================
+    # 1. PALETA DE CORES (Baseada no TailwindCSS do Site)
+    # ==========================================================================
+    colors_xml = """<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors -->
+    <color name="primary">#2563EB</color>       <!-- Blue 600 -->
+    <color name="primary_dark">#1D4ED8</color>  <!-- Blue 700 -->
+    <color name="secondary">#64748B</color>     <!-- Slate 500 -->
+    <color name="accent">#10B981</color>        <!-- Emerald 500 -->
+    <color name="warning">#F59E0B</color>       <!-- Amber 500 -->
+    <color name="danger">#EF4444</color>        <!-- Red 500 -->
+    
+    <!-- Backgrounds -->
+    <color name="bg_body">#F8FAFC</color>       <!-- Slate 50 -->
+    <color name="bg_card">#FFFFFF</color>       <!-- White -->
+    <color name="bg_input">#F1F5F9</color>      <!-- Slate 100 -->
+    
+    <!-- Text -->
+    <color name="text_main">#0F172A</color>     <!-- Slate 900 -->
+    <color name="text_dim">#94A3B8</color>      <!-- Slate 400 -->
+    
+    <!-- UI Elements -->
+    <color name="border_light">#E2E8F0</color>  <!-- Slate 200 -->
+    <color name="white">#FFFFFF</color>
+    
+    <!-- Status -->
+    <color name="uber_black">#000000</color>
+    <color name="pop_yellow">#F7C948</color>
+</resources>
+"""
+    write_file(f"{res_values}/colors.xml", colors_xml)
+
+    # ==========================================================================
+    # 2. ESTILOS CSS TRADUZIDOS PARA ANDROID (Drawables)
+    # ==========================================================================
+
+    # Card Glass (Fundo Branco, Borda Fina, Arredondado)
+    # Equivalente a: background: white; border: 1px solid #e2e8f0; border-radius: 20px;
+    bg_glass_card = """<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/bg_card"/>
+    <corners android:radius="20dp"/>
+    <stroke android:width="1dp" android:color="@color/border_light"/>
+</shape>
+"""
+    write_file(f"{res_drawable}/bg_glass_card.xml", bg_glass_card)
+
+    # Input Field (Fundo cinza claro, arredondado)
+    # Equivalente a: background: #f1f5f9; border-radius: 12px;
+    bg_input = """<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/bg_input"/>
+    <corners android:radius="12dp"/>
+    <stroke android:width="0dp" android:color="@color/transparent"/>
+</shape>
+"""
+    write_file(f"{res_drawable}/bg_input_field.xml", bg_input)
+
+    # Botão Gradiente (Azul Vibrante)
+    # Equivalente a: background: linear-gradient(135deg, #2563EB, #1D4ED8);
+    bg_gradient = """<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient 
+        android:startColor="@color/primary" 
+        android:endColor="@color/primary_dark" 
+        android:angle="135"/>
+    <corners android:radius="16dp"/>
+</shape>
+"""
+    write_file(f"{res_drawable}/bg_btn_gradient.xml", bg_gradient)
+
+    # Botão ícone (Círculo colorido)
+    bg_circle_btn = """<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/primary"/>
+</shape>
+"""
+    write_file(f"{res_drawable}/bg_circle_btn.xml", bg_circle_btn)
+
+    # ==========================================================================
+    # 3. ÍCONES VETORIAIS (Para substituir os feios padrão)
+    # ==========================================================================
+    
+    # Ícone Calendário
+    ic_calendar = """<vector android:height="24dp" android:tint="#2563EB"
+    android:viewportHeight="24" android:viewportWidth="24"
+    android:width="24dp" xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="@android:color/white" android:pathData="M19,4h-1V2h-2v2H8V2H6v2H5C3.89,4 3.01,4.9 3.01,6L3,20c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V6c0,-1.1 -0.9,-2 -2,-2zM19,20H5V10h14v10zM19,8H5V6h14v2zM9,14H7v-2h2v2zM13,14h-2v-2h2v2zM17,14h-2v-2h2v2zM9,18H7v-2h2v2zM13,18h-2v-2h2v2zM17,18h-2v-2h2v2z"/>
+</vector>"""
+    write_file(f"{res_drawable}/ic_custom_calendar.xml", ic_calendar)
+
+    # Ícone Voltar
+    ic_back = """<vector android:height="24dp" android:tint="#0F172A"
+    android:viewportHeight="24" android:viewportWidth="24"
+    android:width="24dp" xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="@android:color/white" android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
+</vector>"""
+    write_file(f"{res_drawable}/ic_custom_back.xml", ic_back)
+
+    # Ícone Adicionar (Plus)
+    ic_add = """<vector android:height="24dp" android:tint="#FFFFFF"
+    android:viewportHeight="24" android:viewportWidth="24"
+    android:width="24dp" xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="@android:color/white" android:pathData="M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+</vector>"""
+    write_file(f"{res_drawable}/ic_custom_add.xml", ic_add)
+
+
+    # ==========================================================================
+    # 4. RECONSTRUÇÃO DA TELA (activity_add_daily.xml)
+    # ==========================================================================
+    # Foco: Espaçamento (Padding), Hierarquia Visual e Cores do Site
+    
+    layout_xml = """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -312,3 +441,16 @@
 
     </LinearLayout>
 </ScrollView>
+"""
+    write_file(f"{res_layout}/activity_add_daily.xml", layout_xml)
+
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("🚀 Reforma Visual Concluída! O app agora está 'Glassmorphic'.")
+    print("👉 Rode './gradlew assembleDebug' para ver a mágica.")
+
+if __name__ == "__main__":
+    main()
+
+
