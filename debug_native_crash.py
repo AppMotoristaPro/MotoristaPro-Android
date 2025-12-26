@@ -1,4 +1,28 @@
-package com.motoristapro.android
+import os
+
+def main():
+    print("🚑 Aplicando Modo de Segurança para descobrir o erro...")
+
+    # 1. Garantir Dependência do CardView no Gradle
+    gradle_path = "app/build.gradle.kts"
+    if os.path.exists(gradle_path):
+        with open(gradle_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        if "androidx.cardview:cardview" not in content:
+            # Adiciona a dependência
+            dep = '    implementation("androidx.cardview:cardview:1.0.0")'
+            if "dependencies {" in content:
+                content = content.replace("dependencies {", "dependencies {\n" + dep)
+                with open(gradle_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                print("✅ Dependência CardView adicionada.")
+
+    # 2. Modificar MainActivity para mostrar o erro na tela
+    main_path = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+    
+    # Código Blindado
+    safe_code = """package com.motoristapro.android
 
 import android.content.Intent
 import android.net.Uri
@@ -78,7 +102,7 @@ class MainActivity : AppCompatActivity() {
         title.setTextColor(android.graphics.Color.RED)
         
         val msg = TextView(this)
-        msg.text = e.toString() + "\n\n" + e.stackTraceToString()
+        msg.text = e.toString() + "\\n\\n" + e.stackTraceToString()
         msg.textSize = 14f
         
         layout.addView(title)
@@ -163,3 +187,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+"""
+    with open(main_path, 'w', encoding='utf-8') as f:
+        f.write(safe_code)
+    
+    print("✅ MainActivity blindada contra crashes.")
+
+    # 3. Incrementar Versão
+    os.system("python3 auto_version.py")
+    print("🚀 Pronto! Rode './gradlew assembleDebug'")
+
+if __name__ == "__main__":
+    main()
+
+

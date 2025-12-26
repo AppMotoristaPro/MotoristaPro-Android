@@ -12,8 +12,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 1766723450
+        versionName = "2.0.1766723450"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -36,6 +36,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.cardview:cardview:1.0.0")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
