@@ -9,7 +9,7 @@ import android.media.projection.MediaProjectionManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.cardview.widget.CardView
+
 import com.motoristapro.android.data.DailyRepository
 import java.text.NumberFormat
 import java.util.Locale
@@ -36,11 +36,11 @@ class MainActivity : AppCompatActivity() {
             tvTotalKm = findViewById(R.id.tvTotalKm)
             tvEmptyHistory = findViewById(R.id.tvEmptyHistory)
 
-            findViewById<CardView>(R.id.btnLancar)?.setOnClickListener {
+            findViewById<LinearLayout>(R.id.btnLancar)?.setOnClickListener {
                 startActivity(Intent(this, AddDailyActivity::class.java))
             }
 
-            findViewById<CardView>(R.id.btnRobo)?.setOnClickListener {
+            findViewById<LinearLayout>(R.id.btnRobo)?.setOnClickListener {
                 checkPermissionsAndStart()
             }
             

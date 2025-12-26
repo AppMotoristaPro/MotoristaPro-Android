@@ -1,4 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?>
+import os
+
+def write_file(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo criado: {path}")
+
+def main():
+    print("🎨 Simplificando Layout para corrigir Crash...")
+
+    res_draw = "app/src/main/res/drawable"
+    res_layout = "app/src/main/res/layout"
+
+    # 1. CRIAR FUNDOS ARREDONDADOS (Substitui o CardView)
+    
+    # Fundo Azul (Para o Card de Faturamento)
+    bg_card_blue = """<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#2563EB"/>
+    <corners android:radius="20dp"/>
+</shape>
+"""
+    write_file(f"{res_draw}/bg_card_blue.xml", bg_card_blue)
+
+    # Fundo Branco com Borda (Para os Botões)
+    bg_card_white = """<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#FFFFFF"/>
+    <corners android:radius="15dp"/>
+    <stroke android:width="1dp" android:color="#E2E8F0"/>
+</shape>
+"""
+    write_file(f"{res_draw}/bg_card_white.xml", bg_card_white)
+
+    # 2. REESCREVER ACTIVITY_MAIN.XML (Sem CardView)
+    # Trocamos <androidx.cardview.widget.CardView> por <LinearLayout> com background
+    
+    new_layout = """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -140,8 +178,7 @@
                 android:focusable="true">
                 
                 <ImageView android:src="@android:drawable/ic_input_add" android:layout_width="30dp" android:layout_height="30dp" android:tint="#10B981"/>
-                <TextView android:text="Novo
-Lançamento" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F172A" android:textAlignment="center" android:layout_marginTop="5dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <TextView android:text="Novo\nLançamento" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F172A" android:textAlignment="center" android:layout_marginTop="5dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
             </LinearLayout>
 
             <!-- BOTÃO ROBÔ -->
@@ -159,8 +196,7 @@ Lançamento" android:textSize="14sp" android:textStyle="bold" android:textColor=
                 android:focusable="true">
                 
                 <ImageView android:src="@android:drawable/ic_media_play" android:layout_width="30dp" android:layout_height="30dp" android:tint="#F59E0B"/>
-                <TextView android:text="Ativar
-Robô" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F172A" android:textAlignment="center" android:layout_marginTop="5dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                <TextView android:text="Ativar\nRobô" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F172A" android:textAlignment="center" android:layout_marginTop="5dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
             </LinearLayout>
         </LinearLayout>
         
@@ -176,8 +212,7 @@ Robô" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F17
             
         <TextView
             android:id="@+id/tvEmptyHistory"
-            android:text="Nenhum lançamento encontrado.
-Toque em 'Novo Lançamento' para começar."
+            android:text="Nenhum lançamento encontrado.\nToque em 'Novo Lançamento' para começar."
             android:gravity="center"
             android:padding="30dp"
             android:background="#FFFFFF"
@@ -188,3 +223,30 @@ Toque em 'Novo Lançamento' para começar."
 
     </LinearLayout>
 </ScrollView>
+"""
+    write_file(f"{res_layout}/activity_main.xml", new_layout)
+    
+    # 3. ATUALIZAR MAINACTIVITY.KT (Remover referências a CardView)
+    main_path = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+    if os.path.exists(main_path):
+        with open(main_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Remove import do CardView
+        content = content.replace("import androidx.cardview.widget.CardView", "")
+        # Troca casting de CardView por LinearLayout ou View genérica
+        content = content.replace("findViewById<CardView>", "findViewById<LinearLayout>")
+        
+        with open(main_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print("✅ MainActivity.kt atualizado (CardView removido).")
+
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("🚀 Layout simplificado! Rode './gradlew assembleDebug'")
+
+if __name__ == "__main__":
+    main()
+
+
