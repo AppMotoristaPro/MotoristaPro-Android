@@ -1,4 +1,21 @@
-package com.motoristapro.android
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo corrigido: {path}")
+
+def main():
+    print("🚑 Corrigindo Crash de Inicialização (UninitializedPropertyAccessException)...")
+    
+    path = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+    
+    if not os.path.exists(path):
+        print("❌ MainActivity.kt não encontrado.")
+        return
+
+    # Código Blindado contra erro de inicialização
+    safe_main_kt = """package com.motoristapro.android
 
 import android.content.Intent
 import android.net.Uri
@@ -110,3 +127,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+"""
+    write_file(path, safe_main_kt)
+    
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("🚀 Correção aplicada! O App não vai mais crashar por inicialização.")
+
+if __name__ == "__main__":
+    main()
+
+
