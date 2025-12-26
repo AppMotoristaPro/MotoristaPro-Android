@@ -1,4 +1,20 @@
-package com.motoristapro.android
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo corrigido: {path}")
+
+def main():
+    print("🚑 Corrigindo erros de Import e KAPT...")
+
+    # ==========================================================================
+    # 1. MAIN ACTIVITY (Com Imports Corrigidos)
+    # ==========================================================================
+    main_path = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+    
+    # Código completo com TODOS os imports
+    main_code = """package com.motoristapro.android
 
 import android.content.Intent
 import android.net.Uri
@@ -141,3 +157,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+"""
+    write_file(main_path, main_code)
+
+    # ==========================================================================
+    # 2. AJUSTE GRADLE (Otimizar KAPT)
+    # ==========================================================================
+    # Às vezes o KAPT falha por falta de memória. Vamos aumentar.
+    gradle_path = "gradle.properties"
+    if os.path.exists(gradle_path):
+        with open(gradle_path, 'r') as f:
+            props = f.read()
+        
+        if "org.gradle.jvmargs" not in props:
+            with open(gradle_path, 'a') as f:
+                f.write("\norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\n")
+                f.write("kapt.use.worker.api=true\n")
+            print("✅ gradle.properties otimizado para KAPT.")
+
+    print("🚀 Correção aplicada!")
+
+if __name__ == "__main__":
+    main()
+
+
