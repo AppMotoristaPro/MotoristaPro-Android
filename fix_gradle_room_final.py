@@ -1,4 +1,16 @@
-plugins {
+import os
+
+def main():
+    print("🚑 Blindando build.gradle.kts para corrigir erros do Room/KAPT...")
+    
+    gradle_path = "app/build.gradle.kts"
+    
+    # Configuração Robusta
+    # - Usa Room 2.6.1 (Compatível com Kotlin 1.8/1.9)
+    # - Adiciona kapt { correctErrorTypes = true }
+    # - Define Java 17
+    
+    new_gradle = """plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("kotlin-kapt")
@@ -12,8 +24,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1766724662
-        versionName = "2.0.1766724662"
+        versionCode = 1
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Corrige erro de schema do Room
@@ -74,3 +86,31 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1") // Importante para Coroutines (suspend)
     kapt("androidx.room:room-compiler:2.6.1")
 }
+"""
+
+    if os.path.exists(gradle_path):
+        with open(gradle_path, 'w', encoding='utf-8') as f:
+            f.write(new_gradle)
+        print("✅ build.gradle.kts reescrito com sucesso.")
+    else:
+        print("❌ Erro: Arquivo build.gradle.kts não encontrado.")
+
+    # Limpeza de Cache do Gradle (Força re-download)
+    print("\n🧹 Limpando cache de build...")
+    os.system("./gradlew clean")
+    
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    # Enviar correção
+    print("\n🚀 Enviando para GitHub...")
+    os.system("git add .")
+    os.system('git commit -m "Fix: Upgrade Room to 2.6.1 and Enable Kapt Error Correction"')
+    os.system("git push")
+    
+    print("\n👉 Agora tente compilar: ./gradlew assembleDebug")
+
+if __name__ == "__main__":
+    main()
+
+
