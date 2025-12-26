@@ -1,4 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?>
+import os
+
+def write_file(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo de Cores Regenerado: {path}")
+
+def main():
+    print("🎨 Reparando colors.xml para incluir 'text_secondary' e 'transparent'...")
+
+    res_values = "app/src/main/res/values"
+
+    # XML Completo com TODAS as cores usadas nos layouts
+    colors_xml = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Cores Principais -->
     <color name="primary">#2563EB</color>       <!-- Blue 600 -->
@@ -31,3 +45,13 @@
     <color name="uber_black">#000000</color>
     <color name="pop_yellow">#F7C948</color>
 </resources>
+"""
+    write_file(f"{res_values}/colors.xml", colors_xml)
+    
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("🚀 Cores corrigidas! Tente compilar agora.")
+
+if __name__ == "__main__":
+    main()
