@@ -1,4 +1,17 @@
-package com.motoristapro.android
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo OcrService corrigido: {path}")
+
+def main():
+    print("🚑 Reparando OcrService.kt (Removendo variáveis fantasmas)...")
+    
+    path = "app/src/main/java/com/motoristapro/android/OcrService.kt"
+    
+    # Código Limpo e Funcional
+    code = """package com.motoristapro.android
 
 import android.app.*
 import android.content.BroadcastReceiver
@@ -264,8 +277,8 @@ class OcrService : Service() {
     // --- CÉREBRO OCR (Com Filtros) ---
     private fun analyzeScreen(rawText: String): Boolean {
         var cleanText = rawText.lowercase()
-            .replace(Regex("r\$\s*[0-9.,]+\s*/\s*km"), "") 
-            .replace(Regex("\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do"), "")
+            .replace(Regex("r\\$\\s*[0-9.,]+\\s*/\\s*km"), "") 
+            .replace(Regex("\\+\\s*r\\$\\s*[0-9.,]+\\s*inclu[íi]do"), "")
             .replace("mais de 30 min", "")
             .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
 
@@ -273,14 +286,14 @@ class OcrService : Service() {
         val dists = ArrayList<Double>()
         val times = ArrayList<Double>()
 
-        val pm = Pattern.compile("(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)")
+        val pm = Pattern.compile("(?:r\\$|rs|\\$)\\s*([0-9]+(?:[.,][0-9]{0,2})?)")
         val matP = pm.matcher(cleanText)
         while (matP.find()) {
             val v = matP.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (v > 4.5 && v < 2000.0) prices.add(v)
         }
 
-        val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)")
+        val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\\s*(km|m)(?!in)")
         val matD = dm.matcher(cleanText)
         while (matD.find()) {
             var d = matD.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -289,7 +302,7 @@ class OcrService : Service() {
             if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        val tmH = Pattern.compile("([0-9]+)\s*(?:h|hr|hrs|hora)")
+        val tmH = Pattern.compile("([0-9]+)\\s*(?:h|hr|hrs|hora)")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
             val h = matH.group(1)?.toIntOrNull() ?: 0
@@ -297,7 +310,7 @@ class OcrService : Service() {
         }
         cleanText = matH.replaceAll(" ") 
 
-        val tmM = Pattern.compile("([0-9]+)\s*(?:min|m)(?!in)")
+        val tmM = Pattern.compile("([0-9]+)\\s*(?:min|m)(?!in)")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
             val m = matM.group(1)?.toDoubleOrNull() ?: 0.0
@@ -366,3 +379,16 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+    write_file(path, code)
+    
+    # Incrementa versão para garantir compilação nova
+    os.system("python3 auto_version.py")
+    
+    print("✅ Robô corrigido e pronto para compilar!")
+    print("👉 Rode: ./gradlew assembleDebug")
+
+if __name__ == "__main__":
+    main()
+
+
