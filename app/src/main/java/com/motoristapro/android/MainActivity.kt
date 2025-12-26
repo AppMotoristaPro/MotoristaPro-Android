@@ -5,17 +5,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.media.projection.MediaProjectionManager // <--- O IMPORT QUE FALTAVA
-import android.widget.LinearLayout
+import android.media.projection.MediaProjectionManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
-import androidx.lifecycle.lifecycleScope
-import com.motoristapro.android.data.AppDatabase
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.motoristapro.android.data.DailyRepository
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -35,31 +30,21 @@ class MainActivity : AppCompatActivity() {
         try {
             setContentView(R.layout.activity_main)
 
-            // Inicializar Views
             tvTotalGanho = findViewById(R.id.tvTotalGanho)
             tvTotalCorridas = findViewById(R.id.tvTotalCorridas)
             tvTotalKm = findViewById(R.id.tvTotalKm)
             tvEmptyHistory = findViewById(R.id.tvEmptyHistory)
 
-            // Botão Lançar
             findViewById<CardView>(R.id.btnLancar)?.setOnClickListener {
-                try {
-                    startActivity(Intent(this, AddDailyActivity::class.java))
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Erro ao abrir: " + e.message, Toast.LENGTH_SHORT).show()
-                }
+                startActivity(Intent(this, AddDailyActivity::class.java))
             }
 
-            // Botão Robô
             findViewById<CardView>(R.id.btnRobo)?.setOnClickListener {
                 checkPermissionsAndStart()
             }
 
-            // Carregar Dados Iniciais
-            refreshDashboard()
-            
         } catch (e: Exception) {
-            Toast.makeText(this, "Erro Fatal: " + e.message, Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Erro UI: " + e.message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -69,43 +54,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshDashboard() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val db = AppDatabase.getDatabase(applicationContext)
-                
-                // Pega histórico (Flow transformado em lista ou snapshot)
-                // Para evitar complexidade do Flow no Kapt agora, vamos assumir que o DAO pode retornar lista direta
-                // Se der erro de Flow, o try-catch segura
-                
-                // ATENÇÃO: O DAO precisa ter um método que não seja Flow para chamada direta simples,
-                // ou precisamos coletar o Flow. Vamos tentar coletar de forma segura.
-                
-                db.diarioDao().getAllHistorico().collect { lista ->
-                    var totalGanho = 0.0
-                    var totalKm = 0.0
-                    var totalCorridas = 0
-                    
-                    for (item in lista) {
-                        totalGanho += item.ganhoBruto
-                        totalKm += item.kmPercorrido
-                        totalCorridas += item.qtdCorridas
-                    }
+        try {
+            val repo = DailyRepository(this)
+            val summary = repo.getMonthSummary()
 
-                    withContext(Dispatchers.Main) {
-                        val ptBr = Locale("pt", "BR")
-                        tvTotalGanho.text = NumberFormat.getCurrencyInstance(ptBr).format(totalGanho)
-                        tvTotalKm.text = String.format("%.0f km", totalKm)
-                        tvTotalCorridas.text = totalCorridas.toString()
-                        
-                        if (lista.isNotEmpty()) {
-                            val sdf = java.text.SimpleDateFormat("dd/MM", Locale("pt", "BR"))
-                            tvEmptyHistory.text = "Último: R$ ${lista[0].ganhoBruto} em ${sdf.format(java.util.Date(lista[0].data))}"
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // e.printStackTrace()
+            val ptBr = Locale("pt", "BR")
+            tvTotalGanho.text = NumberFormat.getCurrencyInstance(ptBr).format(summary.totalEarnings)
+            tvTotalKm.text = String.format("%.0f km", summary.totalKm)
+            tvTotalCorridas.text = summary.totalRuns.toString()
+            
+            if (summary.lastEntry != null) {
+                tvEmptyHistory.text = "Último: R$ ${summary.lastEntry.totalAmount} em ${summary.lastEntry.dateString}"
+            } else {
+                tvEmptyHistory.text = "Nenhum lançamento."
             }
+
+        } catch (e: Exception) {
+            tvEmptyHistory.text = "Erro ao carregar dados."
         }
     }
 
@@ -115,8 +80,6 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(intent, REQUEST_OVERLAY)
             return
         }
-        
-        // AQUI ESTAVA O ERRO DE COMPILAÇÃO
         val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         startActivityForResult(mpManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION)
     }
@@ -134,9 +97,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     startService(serviceIntent)
                 }
-                moveTaskToBack(true)
-            } else {
-                Toast.makeText(this, "Permissão negada", Toast.LENGTH_SHORT).show()
+                moveTaskToBack(true) // Minimiza o app
             }
         }
     }

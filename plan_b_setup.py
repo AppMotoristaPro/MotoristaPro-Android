@@ -1,4 +1,17 @@
-plugins {
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo Configurado: {path}")
+
+def main():
+    print("📉 Iniciando Plano B: Migração para JSON (Zero KAPT)...")
+
+    # 1. BUILD.GRADLE.KTS (Limpo e Leve)
+    # Removemos 'kotlin-kapt' e todas as referencias ao Room.
+    # Adicionamos GSON.
+    gradle_content = """plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
@@ -11,8 +24,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1766727007
-        versionName = "2.0.1766727007"
+        versionCode = 1
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -52,3 +65,16 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
 }
+"""
+    write_file("app/build.gradle.kts", gradle_content)
+
+    # 2. Limpar Cache
+    print("\n🧹 Limpando resíduos de build antigos...")
+    os.system("./gradlew clean")
+    
+    print("\n✅ Ambiente pronto para JSON. Pode prosseguir com o código.")
+
+if __name__ == "__main__":
+    main()
+
+

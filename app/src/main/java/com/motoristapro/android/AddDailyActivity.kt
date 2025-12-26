@@ -9,14 +9,11 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.motoristapro.android.data.AppDatabase
-import com.motoristapro.android.data.entities.DiarioEntity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.motoristapro.android.data.DailyEntry
+import com.motoristapro.android.data.DailyRepository
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.UUID
 
 class AddDailyActivity : AppCompatActivity() {
 
@@ -29,9 +26,6 @@ class AddDailyActivity : AppCompatActivity() {
     private lateinit var et99: EditText
     private lateinit var etPart: EditText
     private lateinit var etOutros: EditText
-    private lateinit var etComb: EditText
-    private lateinit var etAlim: EditText
-    private lateinit var etManu: EditText
     private lateinit var etKm: EditText
     private lateinit var etHoras: EditText
 
@@ -53,9 +47,6 @@ class AddDailyActivity : AppCompatActivity() {
         et99 = findViewById(R.id.et99)
         etPart = findViewById(R.id.etPart)
         etOutros = findViewById(R.id.etOutros)
-        etComb = findViewById(R.id.etComb)
-        etAlim = findViewById(R.id.etAlim)
-        etManu = findViewById(R.id.etManu)
         etKm = findViewById(R.id.etKm)
         etHoras = findViewById(R.id.etHoras)
         
@@ -100,40 +91,34 @@ class AddDailyActivity : AppCompatActivity() {
     private fun saveEntry() {
         val total = etTotal.text.toString().toDoubleOrNull()
         if (total == null || total <= 0) {
-            Toast.makeText(this, "Informe o Faturamento Total", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Informe o Faturamento", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val diario = DiarioEntity(
-            data = calendar.timeInMillis,
-            ganhoBruto = total,
-            ganhoUber = etUber.text.toString().toDoubleOrNull() ?: 0.0,
-            ganho99 = et99.text.toString().toDoubleOrNull() ?: 0.0,
-            ganhoPart = etPart.text.toString().toDoubleOrNull() ?: 0.0,
-            ganhoOutros = etOutros.text.toString().toDoubleOrNull() ?: 0.0,
-            despCombustivel = etComb.text.toString().toDoubleOrNull() ?: 0.0,
-            despAlimentacao = etAlim.text.toString().toDoubleOrNull() ?: 0.0,
-            despManutencao = etManu.text.toString().toDoubleOrNull() ?: 0.0,
-            kmPercorrido = etKm.text.toString().toDoubleOrNull() ?: 0.0,
-            horasTrabalhadas = etHoras.text.toString().toDoubleOrNull() ?: 0.0,
-            isSynced = false
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR"))
+        
+        val entry = DailyEntry(
+            id = UUID.randomUUID().toString(),
+            timestamp = calendar.timeInMillis,
+            dateString = sdf.format(calendar.time),
+            totalAmount = total,
+            uber = etUber.text.toString().toDoubleOrNull() ?: 0.0,
+            pop = et99.text.toString().toDoubleOrNull() ?: 0.0,
+            part = etPart.text.toString().toDoubleOrNull() ?: 0.0,
+            others = etOutros.text.toString().toDoubleOrNull() ?: 0.0,
+            km = etKm.text.toString().toDoubleOrNull() ?: 0.0,
+            hours = etHoras.text.toString().toDoubleOrNull() ?: 0.0,
+            expenses = 0.0, // Simplificado por enquanto
+            runs = 0 // Simplificado
         )
 
-        // Salvar no Banco (Background)
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val db = AppDatabase.getDatabase(applicationContext)
-                db.diarioDao().insert(diario)
-                
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@AddDailyActivity, "✅ Guardado no telemóvel!", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@AddDailyActivity, "Erro ao guardar: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
+        try {
+            val repo = DailyRepository(this)
+            repo.save(entry)
+            Toast.makeText(this, "✅ Salvo com sucesso!", Toast.LENGTH_LONG).show()
+            finish()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 }
