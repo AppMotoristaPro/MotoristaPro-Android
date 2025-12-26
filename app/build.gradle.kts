@@ -16,10 +16,21 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    
+    signingConfigs {
+        create("release") {
+            storeFile = file("motorista.jks")
+            storePassword = "motorista123"
+            keyAlias = "key0"
+            keyPassword = "motorista123"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
