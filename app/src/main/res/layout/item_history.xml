@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@drawable/bg_glass_card"
+    android:padding="15dp"
+    android:layout_marginBottom="12dp"
+    android:gravity="center_vertical"
+    android:elevation="2dp">
+
+    <!-- DATA (Box Branco Pequeno) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/bg_input_field"
+        android:padding="8dp"
+        android:layout_marginEnd="15dp"
+        android:minWidth="50dp">
+        
+        <TextView
+            android:id="@+id/tvDay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="01"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_main"
+            android:includeFontPadding="false"/>
+            
+        <TextView
+            android:id="@+id/tvMonth"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="JAN"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:textColor="@color/text_secondary"
+            android:includeFontPadding="false"/>
+    </LinearLayout>
+
+    <!-- INFO CENTRO (Apps e Detalhes) -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+        
+        <TextView
+            android:id="@+id/tvApps"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Uber • 99"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_main"/>
+            
+        <TextView
+            android:id="@+id/tvDetails"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0km • 0h"
+            android:textSize="11sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+    <!-- VALORES (Direita) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="end">
+        
+        <TextView
+            android:id="@+id/tvValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+ R$ 0,00"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent"/>
+            
+        <TextView
+            android:id="@+id/tvExpense"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="- R$ 0,00"
+            android:textSize="10sp"
+            android:textColor="@color/danger"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+</LinearLayout>

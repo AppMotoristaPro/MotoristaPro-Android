@@ -54,6 +54,11 @@ class MainActivity : AppCompatActivity() {
                 checkPermissionsAndStart()
             }
             
+            // Botão Histórico (Card Inferior)
+            findViewById<View>(R.id.tvEmptyHistory)?.setOnClickListener {
+                startActivity(Intent(this, HistoryActivity::class.java))
+            
+            
             // Carrega dados se UI estiver pronta
             if (tvTotalGanho != null) refreshDashboard()
 
