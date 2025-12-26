@@ -1,4 +1,17 @@
-package com.motoristapro.android
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo Corrigido: {path}")
+
+def main():
+    print("🚑 Corrigindo erros de chaves {} no MainActivity.kt...")
+    
+    path = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+    
+    # Código verificado linha a linha
+    code = """package com.motoristapro.android
 
 import android.content.Intent
 import android.net.Uri
@@ -129,3 +142,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+"""
+    write_file(path, code)
+    
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("🚀 Sintaxe corrigida! Compile agora.")
+
+if __name__ == "__main__":
+    main()
+
+
