@@ -11,8 +11,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1766763687
-        versionName = "2.0.1766763687"
+        versionCode = 1766764577
+        versionName = "2.0.1766764577"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -37,7 +37,7 @@ dependencies {
     implementation("com.google.android.material:material:1.10.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     
-    // Mantemos ML Kit para o OCR (O único nativo que sobra)
+    // ML Kit (OCR) - Único essencial
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
 }

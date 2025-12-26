@@ -5,14 +5,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Button
-import android.widget.FrameLayout
 import android.provider.Settings
+import android.media.projection.MediaProjectionManager
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.media.projection.MediaProjectionManager
+import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -20,8 +20,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private val REQUEST_OVERLAY = 101
     private val REQUEST_MEDIA_PROJECTION = 102
+    
+    // URL FIXA
+    private val SITE_URL = "https://motorista-pro-app.onrender.com"
 
-    // Ponte para o Site chamar o Robô
     inner class WebAppInterface(private val mContext: Context) {
         @JavascriptInterface
         fun startRobot() {
@@ -33,24 +35,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        
         webView = findViewById(R.id.webView)
+        val btnStart = findViewById<Button>(R.id.btnStartRobot)
         
-        // --- BOTÃO OFFLINE ---
-        val btnForce = findViewById<Button>(R.id.btnForceStart)
-        btnForce.setOnClickListener {
-            Toast.makeText(this, "Iniciando modo manual...", Toast.LENGTH_SHORT).show()
+        // Ação do Botão Offline
+        btnStart.setOnClickListener {
             checkPermissionsAndStart()
         }
-            
-        
+
         // Configurações Web
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.settings.databaseEnabled = true
-        // UserAgent para evitar bloqueio do Google
-        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36 MotoristaProApp"
-
+        
         // Cookies
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
@@ -61,7 +57,6 @@ class MainActivity : AppCompatActivity() {
         // Interface JS
         webView.addJavascriptInterface(WebAppInterface(this), "MotoristaProAndroid")
 
-        // Cliente Web (Para não abrir no Chrome)
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 if (url != null && (url.startsWith("whatsapp:") || url.startsWith("geo:") || url.startsWith("tel:"))) {
@@ -73,11 +68,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Carrega o Site
-        webView.loadUrl("https://motorista-pro-app.onrender.com")
+        webView.loadUrl(SITE_URL)
     }
 
     private fun checkPermissionsAndStart() {
         if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Permita sobreposição", Toast.LENGTH_LONG).show()
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             startActivityForResult(intent, REQUEST_OVERLAY)
             return
