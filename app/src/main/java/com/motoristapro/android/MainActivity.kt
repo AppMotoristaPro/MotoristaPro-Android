@@ -1,149 +1,106 @@
 package com.motoristapro.android
 
-import android.app.DownloadManager
-import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
-import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
-import android.view.Gravity
-import android.view.View
-import android.webkit.*
-import android.widget.Button
-import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
+import androidx.lifecycle.lifecycleScope
+import com.motoristapro.android.data.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.NumberFormat
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private lateinit var tvTotalGanho: TextView
+    private lateinit var tvTotalCorridas: TextView
+    private lateinit var tvTotalKm: TextView
+    private lateinit var tvEmptyHistory: TextView
+    
     private val REQUEST_OVERLAY = 101
     private val REQUEST_MEDIA_PROJECTION = 102
 
-    inner class WebAppInterface(private val mContext: Context) {
-        @JavascriptInterface
-        fun startRobot() {
-            checkPermissionsAndStart()
-        }
-        
-        @JavascriptInterface
-        fun getVersionCode(): Int {
-            return try {
-                val pInfo = mContext.packageManager.getPackageInfo(mContext.packageName, 0)
-                if (Build.VERSION.SDK_INT >= 28) pInfo.longVersionCode.toInt() else pInfo.versionCode
-            } catch (e: Exception) { 0 }
-        }
-        
-        @JavascriptInterface
-        fun updateConfig(goodKm: Double, badKm: Double, goodHour: Double, badHour: Double) {
-            val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)
-            prefs.edit()
-                .putFloat("good_km", goodKm.toFloat())
-                .putFloat("bad_km", badKm.toFloat())
-                .putFloat("good_hour", goodHour.toFloat())
-                .putFloat("bad_hour", badHour.toFloat())
-                .apply()
-            val intent = Intent("OCR_CONFIG_UPDATED")
-            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(mContext).sendBroadcast(intent)
-            runOnUiThread { Toast.makeText(mContext, "Configurado via Site!", Toast.LENGTH_SHORT).show() }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // Layout Raiz (FrameLayout permite empilhar coisas)
-        val root = FrameLayout(this)
-        setContentView(root)
-        
-        // 1. WebView (Fica no fundo)
-        webView = WebView(this)
-        webView.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-        
-        // Configs Web
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.databaseEnabled = true
-        webView.settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36 MotoristaProApp"
-        
-        val cookieManager = CookieManager.getInstance()
-        cookieManager.setAcceptCookie(true)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            cookieManager.setAcceptThirdPartyCookies(webView, true)
+        setContentView(R.layout.activity_main)
+
+        // Inicializar Views
+        tvTotalGanho = findViewById(R.id.tvTotalGanho)
+        tvTotalCorridas = findViewById(R.id.tvTotalCorridas)
+        tvTotalKm = findViewById(R.id.tvTotalKm)
+        tvEmptyHistory = findViewById(R.id.tvEmptyHistory)
+
+        // Botão Lançar (Abre a tela nativa do Módulo 2)
+        findViewById<CardView>(R.id.btnLancar).setOnClickListener {
+            startActivity(Intent(this, AddDailyActivity::class.java))
         }
 
-        webView.addJavascriptInterface(WebAppInterface(this), "MotoristaProAndroid")
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                if (url != null && (url.startsWith("whatsapp:") || url.startsWith("geo:") || url.startsWith("tel:"))) {
-                    try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch(e:Exception){}
-                    return true
-                }
-                return false
-            }
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                if (Build.VERSION.SDK_INT >= 21) CookieManager.getInstance().flush()
-            }
+        // Botão Robô
+        findViewById<CardView>(R.id.btnRobo).setOnClickListener {
+            checkPermissionsAndStart()
         }
 
-        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+        // Carregar Dados Iniciais
+        refreshDashboard()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Recarrega os dados toda vez que voltar para esta tela (ex: após salvar um ganho)
+        refreshDashboard()
+    }
+
+    private fun refreshDashboard() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(applicationContext)
+            
+            // Consulta: Soma tudo o que já foi lançado
+            // Nota: collect() é para Flow, aqui vamos usar uma query direta se possível ou coletar o flow
+            // Como definimos getAllHistorico como Flow, vamos apenas pegar o primeiro valor para simplificar o dashboard estático
+            
+            // Para simplificar a demonstração, vamos apenas somar tudo na memória ou criar uma query de soma no DAO
+            // Vamos usar o Flow que já existe e pegar o valor atual
+            
             try {
-                val request = DownloadManager.Request(Uri.parse(url))
-                request.setMimeType(mimetype)
-                request.addRequestHeader("cookie", CookieManager.getInstance().getCookie(url))
-                request.addRequestHeader("User-Agent", userAgent)
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimetype))
-                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-                dm.enqueue(request)
-                Toast.makeText(this, "Baixando...", Toast.LENGTH_SHORT).show()
+                // Pegamos o histórico completo
+                db.diarioDao().getAllHistorico().collect { lista ->
+                    var totalGanho = 0.0
+                    var totalKm = 0.0
+                    var totalCorridas = 0
+                    
+                    for (item in lista) {
+                        totalGanho += item.ganhoBruto
+                        totalKm += item.kmPercorrido
+                        totalCorridas += (if (item.qtdCorridas > 0) item.qtdCorridas else 1) // Estimativa simples se qtd for 0
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        val ptBr = Locale("pt", "BR")
+                        tvTotalGanho.text = NumberFormat.getCurrencyInstance(ptBr).format(totalGanho)
+                        tvTotalKm.text = String.format("%.0f km", totalKm)
+                        tvTotalCorridas.text = totalCorridas.toString()
+                        
+                        if (lista.isNotEmpty()) {
+                            tvEmptyHistory.text = "Último lançamento: R$ ${lista[0].ganhoBruto} em ${java.text.SimpleDateFormat("dd/MM").format(java.util.Date(lista[0].data))}"
+                        }
+                    }
+                }
             } catch (e: Exception) {
-                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (e2: Exception) {}
+                e.printStackTrace()
             }
         }
-        
-        root.addView(webView)
-        
-        // 2. BOTÃO DE EMERGÊNCIA (Fica na frente)
-        val btnStart = Button(this).apply {
-            text = "🤖 INICIAR ROBÔ (OFFLINE)"
-            textSize = 14f
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#10B981")) // Verde
-                cornerRadius = 50f
-                setStroke(2, Color.WHITE)
-            }
-            elevation = 20f
-            setPadding(40, 20, 40, 20)
-            setOnClickListener {
-                Toast.makeText(context, "Iniciando modo manual...", Toast.LENGTH_SHORT).show()
-                checkPermissionsAndStart()
-            }
-        }
-
-        // Posiciona no final da tela, centralizado
-        val paramsBtn = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            bottomMargin = 100 // Margem do fundo
-        }
-        
-        root.addView(btnStart, paramsBtn)
-
-        // Carrega Site
-        webView.loadUrl("https://motoristapro.onrender.com")
     }
 
     private fun checkPermissionsAndStart() {
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Preciso de permissão para desenhar na tela", Toast.LENGTH_LONG).show()
             val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             startActivityForResult(intent, REQUEST_OVERLAY)
             return
@@ -167,9 +124,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 // Minimizar
                 moveTaskToBack(true)
+            } else {
+                Toast.makeText(this, "Permissão negada", Toast.LENGTH_SHORT).show()
             }
         }
     }
-
-    override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }

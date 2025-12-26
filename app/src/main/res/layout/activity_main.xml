@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F1F5F9">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- CABEÇALHO -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="25dp">
+            
+            <ImageView
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:src="@mipmap/ic_launcher_round"/>
+                
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="15dp">
+                
+                <TextView
+                    android:text="Olá, Motorista"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#0F172A"/>
+                
+                <TextView
+                    android:text="Visão Geral (Offline)"
+                    android:textSize="12sp"
+                    android:textColor="#64748B"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- CARD DE RESUMO FINANCEIRO -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="5dp"
+            android:layout_marginBottom="25dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#2563EB"
+                android:padding="25dp">
+
+                <TextView
+                    android:text="FATURAMENTO TOTAL"
+                    android:textSize="12sp"
+                    android:textColor="#93C5FD"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"/>
+
+                <TextView
+                    android:id="@+id/tvTotalGanho"
+                    android:text="R$ 0,00"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="5dp"/>
+                
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#40FFFFFF"
+                    android:layout_marginTop="15dp"
+                    android:layout_marginBottom="15dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+                        <TextView android:text="CORRIDAS" android:textSize="10sp" android:textColor="#93C5FD"/>
+                        <TextView android:id="@+id/tvTotalCorridas" android:text="0" android:textSize="16sp" android:textColor="#FFFFFF" android:textStyle="bold"/>
+                    </LinearLayout>
+                    
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+                        <TextView android:text="KM TOTAL" android:textSize="10sp" android:textColor="#93C5FD"/>
+                        <TextView android:id="@+id/tvTotalKm" android:text="0 km" android:textSize="16sp" android:textColor="#FFFFFF" android:textStyle="bold"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- AÇÕES RÁPIDAS -->
+        <TextView
+            android:text="AÇÕES RÁPIDAS"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#64748B"
+            android:layout_marginBottom="10dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:layout_marginBottom="15dp">
+
+            <!-- BOTÃO LANÇAR -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnLancar"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                app:cardCornerRadius="15dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#FFFFFF">
+                
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView android:src="@android:drawable/ic_input_add" android:layout_width="30dp" android:layout_height="30dp" app:tint="#10B981"/>
+                    <TextView android:text="Novo
+Lançamento" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F172A" android:textAlignment="center" android:layout_marginTop="5dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- BOTÃO ROBÔ -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnRobo"
+                android:layout_width="0dp"
+                android:layout_height="100dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                app:cardCornerRadius="15dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#FFFFFF">
+                
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
+                    <ImageView android:src="@android:drawable/ic_media_play" android:layout_width="30dp" android:layout_height="30dp" app:tint="#F59E0B"/>
+                    <TextView android:text="Ativar
+Robô" android:textSize="14sp" android:textStyle="bold" android:textColor="#0F172A" android:textAlignment="center" android:layout_marginTop="5dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+        
+        <TextView
+            android:text="Histórico Recente"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#64748B"
+            android:layout_marginBottom="10dp"
+            android:layout_marginTop="10dp"/>
+            
+        <TextView
+            android:id="@+id/tvEmptyHistory"
+            android:text="Nenhum lançamento encontrado.
+Toque em 'Novo Lançamento' para começar."
+            android:gravity="center"
+            android:padding="30dp"
+            android:background="#FFFFFF"
+            android:textColor="#94A3B8"
+            android:textSize="12sp"/>
+
+    </LinearLayout>
+</ScrollView>
