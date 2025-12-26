@@ -12,16 +12,9 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1766724662
-        versionName = "2.0.1766724662"
+        versionCode = 1766725095
+        versionName = "2.0.1766725095"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
-        // Corrige erro de schema do Room
-        javaCompileOptions {
-            annotationProcessorOptions {
-                arguments += mapOf("room.schemaLocation" to "$projectDir/schemas")
-            }
-        }
     }
 
     buildTypes {
@@ -44,33 +37,28 @@ android {
     }
 }
 
-// Configuração essencial para corrigir erros de "Unresolved reference" no KAPT
+// Força o Kapt a ser tolerante a erros de tipo
 kapt {
     correctErrorTypes = true
 }
 
 dependencies {
-    // Android Core
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.cardview:cardview:1.0.0")
     
-    // ML Kit (OCR do Robô)
+    // ML Kit
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
     
-    // Coroutines (Processamento em segundo plano)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
     
-    // Lifecycle (ViewModel, LiveData)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
-    implementation("androidx.lifecycle:lifecycle-service:2.6.2")
-    
-    // ROOM DATABASE (Versão 2.6.1 - A mais compatível com SDK 34)
+    // Room (Versão 2.6.1)
     implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1") // Importante para Coroutines (suspend)
+    implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 }

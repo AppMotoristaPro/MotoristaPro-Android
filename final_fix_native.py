@@ -1,4 +1,88 @@
-package com.motoristapro.android
+import os
+
+def write_file(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Reconstruído: {path}")
+
+def main():
+    print("🚑 Aplicando Correção Definitiva (Gradle + Main + Database)...")
+
+    # ==============================================================================
+    # 1. BUILD.GRADLE.KTS (Blindado)
+    # ==============================================================================
+    gradle_content = """plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("kotlin-kapt")
+}
+
+android {
+    namespace = "com.motoristapro.android"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.motoristapro.android"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    
+    buildFeatures {
+        viewBinding = true
+    }
+}
+
+// Força o Kapt a ser tolerante a erros de tipo
+kapt {
+    correctErrorTypes = true
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.cardview:cardview:1.0.0")
+    
+    // ML Kit
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
+    
+    // Room (Versão 2.6.1)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+}
+"""
+    write_file("app/build.gradle.kts", gradle_content)
+
+    # ==============================================================================
+    # 2. MAIN ACTIVITY (Com Imports Corretos)
+    # ==============================================================================
+    main_activity = """package com.motoristapro.android
 
 import android.content.Context
 import android.content.Intent
@@ -113,3 +197,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+"""
+    write_file("app/src/main/java/com/motoristapro/android/MainActivity.kt", main_activity)
+
+    # ==============================================================================
+    # 3. DIARIO DAO (Simplificado para evitar erro de Cursor)
+    # ==============================================================================
+    # Removemos o Flow por enquanto e usamos List direta suspensa
+    diario_dao = """package com.motoristapro.android.data.dao
+
+import androidx.room.*
+import com.motoristapro.android.data.entities.DiarioEntity
+
+@Dao
+interface DiarioDao {
+    @Query("SELECT * FROM diarios WHERE isDeleted = 0 ORDER BY data DESC")
+    suspend fun getAllList(): List<DiarioEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(diario: DiarioEntity): Long
+}
+"""
+    write_file("app/src/main/java/com/motoristapro/android/data/dao/DiarioDao.kt", diario_dao)
+
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("\n🚀 Enviando Correção Definitiva...")
+    os.system("git add .")
+    os.system('git commit -m "Fix: Resolve imports and simplify Room DAO"')
+    os.system("git push")
+
+if __name__ == "__main__":
+    main()
+
+
