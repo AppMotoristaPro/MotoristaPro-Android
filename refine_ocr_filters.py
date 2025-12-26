@@ -1,4 +1,20 @@
-package com.motoristapro.android
+import os
+
+def find_file(name, path="."):
+    for root, dirs, files in os.walk(path):
+        if name in files: return os.path.join(root, name)
+    return None
+
+def main():
+    print("🧹 Adicionando Filtros de Ruído ao Robô (Ignorar taxas e /km)...")
+    
+    file_path = find_file("OcrService.kt")
+    if not file_path:
+        print("❌ Erro: OcrService.kt não encontrado.")
+        return
+
+    # Código Completo do Robô com os Novos Filtros
+    full_code = r"""package com.motoristapro.android
 
 import android.app.*
 import android.content.BroadcastReceiver
@@ -368,3 +384,16 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(full_code)
+    
+    # Incrementa versão para garantir update
+    os.system("python3 auto_version.py")
+    
+    print("✅ Filtros de ruído aplicados! Compile agora.")
+
+if __name__ == "__main__":
+    main()
+
+

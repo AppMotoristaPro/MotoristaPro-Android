@@ -11,8 +11,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1766764577
-        versionName = "2.0.1766764577"
+        versionCode = 1766768139
+        versionName = "2.0.1766768139"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
