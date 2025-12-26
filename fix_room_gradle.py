@@ -1,4 +1,13 @@
-plugins {
+import os
+
+def main():
+    print("🚑 Reparando build.gradle.kts para baixar o Room corretamente...")
+    
+    gradle_path = "app/build.gradle.kts"
+    
+    # Conteúdo Blindado do Gradle
+    # Usamos versões explícitas e compatibilidade Java 17 (Padrão novo)
+    new_gradle = """plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("kotlin-kapt")
@@ -12,8 +21,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1766723883
-        versionName = "2.0.1766723883"
+        versionCode = 1
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -62,3 +71,26 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.1")
 }
+"""
+
+    if os.path.exists(gradle_path):
+        with open(gradle_path, 'w', encoding='utf-8') as f:
+            f.write(new_gradle)
+        print("✅ build.gradle.kts reescrito com sucesso.")
+    else:
+        print("❌ Erro: Arquivo build.gradle.kts não encontrado.")
+
+    # Incrementar versão para garantir novo build limpo
+    print("\n🔄 Incrementando versão...")
+    os.system("python3 auto_version.py")
+    
+    # Enviar para GitHub
+    print("\n🚀 Enviando correção...")
+    os.system("git add .")
+    os.system('git commit -m "Fix: Build Gradle Room Dependencies & Java 17"')
+    os.system("git push")
+
+if __name__ == "__main__":
+    main()
+
+
