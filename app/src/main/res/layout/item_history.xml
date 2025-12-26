@@ -18,14 +18,14 @@
         android:background="@drawable/bg_input_field"
         android:padding="8dp"
         android:layout_marginEnd="15dp"
-        android:minWidth="50dp">
+        android:minWidth="55dp">
         
         <TextView
             android:id="@+id/tvDay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="01"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="@color/text_main"
             android:includeFontPadding="false"/>
@@ -35,14 +35,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="JAN"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:textAllCaps="true"
             android:textColor="@color/text_secondary"
             android:includeFontPadding="false"/>
     </LinearLayout>
 
-    <!-- INFO CENTRO (Apps e Detalhes) -->
+    <!-- INFO CENTRO -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -53,19 +53,21 @@
             android:id="@+id/tvApps"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Uber • 99"
+            android:text="Carregando..."
             android:textSize="14sp"
             android:textStyle="bold"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:textColor="@color/text_main"/>
             
         <TextView
             android:id="@+id/tvDetails"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0km • 0h"
-            android:textSize="11sp"
+            android:text="-- km • -- h"
+            android:textSize="12sp"
             android:textColor="@color/text_secondary"
-            android:layout_marginTop="2dp"/>
+            android:layout_marginTop="3dp"/>
     </LinearLayout>
 
     <!-- VALORES (Direita) -->
@@ -79,8 +81,8 @@
             android:id="@+id/tvValue"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="+ R$ 0,00"
-            android:textSize="14sp"
+            android:text="R$ 0,00"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:textColor="@color/accent"/>
             
@@ -89,9 +91,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="- R$ 0,00"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:textColor="@color/danger"
-            android:layout_marginTop="2dp"/>
+            android:layout_marginTop="3dp"
+            android:visibility="gone"/>
     </LinearLayout>
 
 </LinearLayout>

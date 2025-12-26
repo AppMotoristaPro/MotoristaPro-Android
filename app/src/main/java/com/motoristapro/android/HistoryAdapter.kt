@@ -26,47 +26,58 @@ class HistoryAdapter(private val list: List<DailyEntry>) : RecyclerView.Adapter<
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val item = list[position]
-        val ptBr = Locale("pt", "BR")
-
-        // Data (Ex: 25/12/2025)
         try {
-            val parts = item.dateString.split("/")
-            holder.tvDay.text = parts[0]
-            val meses = listOf("","JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ")
-            val mesIdx = parts[1].toInt()
-            holder.tvMonth.text = if (mesIdx <= 12) meses[mesIdx] else parts[1]
-        } catch(e: Exception) {
-            holder.tvDay.text = "--"
-            holder.tvMonth.text = ""
+            val item = list[position]
+            val context = holder.itemView.context
+            val ptBr = Locale("pt", "BR")
+
+            // Formatação de Data Segura
+            try {
+                if (item.dateString.contains("/")) {
+                    val parts = item.dateString.split("/")
+                    if (parts.size >= 2) {
+                        holder.tvDay.text = parts[0]
+                        val meses = listOf("","JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ")
+                        val mesIdx = parts[1].toIntOrNull() ?: 0
+                        holder.tvMonth.text = if (mesIdx in 1..12) meses[mesIdx] else parts[1]
+                    }
+                } else {
+                    holder.tvDay.text = "?"
+                }
+            } catch(e: Exception) {
+                holder.tvDay.text = "--"
+            }
+
+            // Valores Monetários
+            val format = NumberFormat.getCurrencyInstance(ptBr)
+            holder.tvValue.text = "+ " + format.format(item.totalAmount)
+            holder.tvValue.setTextColor(android.graphics.Color.parseColor("#10B981")) // Verde (Hardcoded para segurança)
+
+            if (item.expenses > 0) {
+                holder.tvExpense.text = "- " + format.format(item.expenses)
+                holder.tvExpense.visibility = View.VISIBLE
+                holder.tvExpense.setTextColor(android.graphics.Color.parseColor("#EF4444")) // Vermelho
+            } else {
+                holder.tvExpense.visibility = View.GONE
+            }
+
+            // Lista de Apps
+            val apps = ArrayList<String>()
+            if (item.uber > 0) apps.add("Uber")
+            if (item.pop > 0) apps.add("99")
+            if (item.part > 0) apps.add("Part")
+            if (item.others > 0) apps.add("Out")
+            if (apps.isEmpty()) apps.add("Geral")
+            
+            holder.tvApps.text = apps.joinToString(" • ")
+
+            // Detalhes (KM e Horas)
+            holder.tvDetails.text = String.format(Locale.US, "%.0f km • %.1f h", item.km, item.hours)
+            
+        } catch (e: Exception) {
+            // Evita crash se der erro no bind
+            holder.tvApps.text = "Erro ao exibir item"
         }
-
-        // Valores
-        val format = NumberFormat.getCurrencyInstance(ptBr)
-        holder.tvValue.text = "+ " + format.format(item.totalAmount)
-        
-        // Despesa (Se tiver)
-        if (item.expenses > 0) {
-            holder.tvExpense.text = "- " + format.format(item.expenses)
-            holder.tvExpense.visibility = View.VISIBLE
-        } else {
-            holder.tvExpense.visibility = View.GONE
-        }
-
-        // Apps
-        val apps = ArrayList<String>()
-        if (item.uber > 0) apps.add("Uber")
-        if (item.pop > 0) apps.add("99")
-        if (item.part > 0) apps.add("Part")
-        if (item.others > 0) apps.add("Out")
-        if (apps.isEmpty()) apps.add("Geral")
-        
-        // Limita a 3 apps para não quebrar layout
-        val appsText = if (apps.size > 3) apps.take(3).joinToString(" • ") + "..." else apps.joinToString(" • ")
-        holder.tvApps.text = appsText
-
-        // Detalhes
-        holder.tvDetails.text = String.format(Locale.US, "%.0f km • %.1f h", item.km, item.hours)
     }
 
     override fun getItemCount() = list.size
