@@ -23,6 +23,8 @@ android {
             storePassword = "motorista123"
             keyAlias = "key0"
             keyPassword = "motorista123"
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 

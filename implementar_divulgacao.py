@@ -1,4 +1,10 @@
-package com.motoristapro.android
+import os
+
+# Caminho do arquivo MainActivity.kt
+file_path = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+
+# Novo conteúdo do arquivo com o Diálogo de Divulgação
+new_content = r'''package com.motoristapro.android
 
 import android.app.AlertDialog
 import android.content.Context
@@ -132,3 +138,13 @@ class MainActivity : AppCompatActivity() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
+'''
+
+if os.path.exists(os.path.dirname(file_path)):
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    print(f"✅ MainActivity.kt atualizado com Divulgação Proeminente!")
+else:
+    print(f"❌ Erro: Diretório não encontrado.")
+
+
