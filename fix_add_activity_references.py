@@ -1,4 +1,17 @@
-package com.motoristapro.android
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Arquivo Corrigido: {path}")
+
+def main():
+    print("🚑 Corrigindo referências de botões na AddDailyActivity...")
+    
+    path = "app/src/main/java/com/motoristapro/android/AddDailyActivity.kt"
+    
+    # Código corrigido com declaração explícita de todas as views
+    code = """package com.motoristapro.android
 
 import android.app.DatePickerDialog
 import android.os.Bundle
@@ -270,3 +283,15 @@ class AddDailyActivity : AppCompatActivity() {
         override fun afterTextChanged(s: Editable?) {}
     }
 }
+"""
+    write_file(path, code)
+    
+    # Incrementa versão
+    os.system("python3 auto_version.py")
+    
+    print("🚀 Activity corrigida com declarações explícitas.")
+
+if __name__ == "__main__":
+    main()
+
+
