@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
-    <application
+    <application android:name=".MotoristaApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -34,6 +34,7 @@
             android:foregroundServiceType="mediaProjection" />
 
             <activity android:name=".AddDailyActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".ErrorActivity" android:process=":error_process" />
     </application>
 
 </manifest>
