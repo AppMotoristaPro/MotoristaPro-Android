@@ -1,4 +1,17 @@
-plugins {
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Gradle Limpo: {path}")
+
+def main():
+    print("🧹 Removendo KAPT e Room do Gradle para Plano B...")
+    
+    gradle_path = "app/build.gradle.kts"
+    
+    # Gradle para JSON puro (Sem KAPT, Sem Room)
+    clean_gradle = """plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
@@ -11,8 +24,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1766753829
-        versionName = "2.0.1766753829"
+        versionCode = 1
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -52,3 +65,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
 }
+"""
+    write_file(gradle_path, clean_gradle)
+
+    # Limpar cache
+    os.system("./gradlew clean")
+    print("✅ Cache limpo.")
+
+if __name__ == "__main__":
+    main()
+
+

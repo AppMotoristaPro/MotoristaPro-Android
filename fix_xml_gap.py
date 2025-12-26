@@ -1,4 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
+import os
+
+def write_file(path, content):
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    print(f"✅ Layout Corrigido (Sem 'gap'): {path}")
+
+def main():
+    print("🎨 Removendo atributo 'android:gap' incompatível...")
+    
+    path = "app/src/main/res/layout/activity_add_daily.xml"
+    
+    # XML Corrigido (Usando margens em vez de gap)
+    xml_content = """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -317,3 +330,13 @@
 
     </LinearLayout>
 </ScrollView>
+"""
+    write_file(path, xml_content)
+    
+    # Incrementa versão para garantir compilação nova
+    os.system("python3 auto_version.py")
+
+if __name__ == "__main__":
+    main()
+
+
