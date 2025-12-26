@@ -4,178 +4,269 @@ import android.app.DatePickerDialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.motoristapro.android.data.DailyEntry
 import com.motoristapro.android.data.DailyRepository
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
 class AddDailyActivity : AppCompatActivity() {
 
     private val calendar = Calendar.getInstance()
+    private val localeBR = Locale("pt", "BR")
     
-    // Variáveis Nullable para evitar Crash de inicialização
+    // UI - Views
     private var tvDate: TextView? = null
     private var etTotal: EditText? = null
+    private var badgeTotal: TextView? = null
     
-    private var etUber: EditText? = null
-    private var et99: EditText? = null
-    private var etPart: EditText? = null
-    private var etOutros: EditText? = null
-    private var etComb: EditText? = null
-    private var etAlim: EditText? = null
-    private var etManu: EditText? = null
+    private var etNewEarnValue: EditText? = null
+    private var spNewEarnType: Spinner? = null
+    private var containerEarnings: LinearLayout? = null
+    
+    private var etNewExpValue: EditText? = null
+    private var spNewExpType: Spinner? = null
+    private var containerExpenses: LinearLayout? = null
+    
+    // Contadores
+    private var qtdUber: EditText? = null
+    private var qtd99: EditText? = null
+    private var qtdPart: EditText? = null
+    private var qtdOutros: EditText? = null
     private var etKm: EditText? = null
     private var etHoras: EditText? = null
 
+    // Dados em Memória
+    private val earningItems = ArrayList<HistoryItem>()
+    private val expenseItems = ArrayList<HistoryItem>()
+
+    data class HistoryItem(val type: String, val name: String, val value: Double)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         try {
             setContentView(R.layout.activity_add_daily)
-
             initViews()
-            setupDatePicker()
-            setupAutoSum()
+            setupSpinners()
+            setupFormatters()
+            updateDateLabel()
             
-            // Botão Salvar Seguro
-            findViewById<View>(R.id.btnSave)?.setOnClickListener { 
-                try {
-                    saveEntry()
-                } catch(e: Exception) {
-                    showError("Erro ao salvar: " + e.message)
-                }
+            findViewById<View>(R.id.btnBack)?.setOnClickListener { finish() }
+            
+            findViewById<View>(R.id.tvDate)?.setOnClickListener {
+                DatePickerDialog(this, { _, y, m, d ->
+                    calendar.set(y, m, d)
+                    updateDateLabel()
+                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
             }
             
+            findViewById<View>(R.id.btnAddEarn)?.setOnClickListener { addEarning() }
+            findViewById<View>(R.id.btnAddExp)?.setOnClickListener { addExpense() }
+            
+            findViewById<Button>(R.id.btnSave)?.setOnClickListener { saveEntry() }
+            
         } catch (e: Exception) {
-            // MOSTRA O ERRO NA TELA (EM VEZ DE FECHAR)
-            showErrorFatal(e)
+            Toast.makeText(this, "Erro UI: " + e.message, Toast.LENGTH_LONG).show()
         }
     }
 
     private fun initViews() {
         tvDate = findViewById(R.id.tvDate)
         etTotal = findViewById(R.id.etTotal)
-        etUber = findViewById(R.id.etUber)
-        et99 = findViewById(R.id.et99)
-        etPart = findViewById(R.id.etPart)
-        etOutros = findViewById(R.id.etOutros)
-        etComb = findViewById(R.id.etComb)
-        etAlim = findViewById(R.id.etAlim)
-        etManu = findViewById(R.id.etManu)
+        badgeTotal = findViewById(R.id.badgeTotal)
+        
+        etNewEarnValue = findViewById(R.id.etNewEarnValue)
+        spNewEarnType = findViewById(R.id.spNewEarnType)
+        containerEarnings = findViewById(R.id.containerEarnings)
+        
+        etNewExpValue = findViewById(R.id.etNewExpValue)
+        spNewExpType = findViewById(R.id.spNewExpType)
+        containerExpenses = findViewById(R.id.containerExpenses)
+        
+        qtdUber = findViewById(R.id.qtdUber)
+        qtd99 = findViewById(R.id.qtd99)
+        qtdPart = findViewById(R.id.qtdPart)
+        qtdOutros = findViewById(R.id.qtdOutros)
         etKm = findViewById(R.id.etKm)
         etHoras = findViewById(R.id.etHoras)
-        
-        updateDateLabel()
     }
 
-    private fun setupDatePicker() {
-        tvDate?.setOnClickListener {
-            try {
-                DatePickerDialog(this, { _, year, month, day ->
-                    calendar.set(year, month, day)
-                    updateDateLabel()
-                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
-            } catch(e: Exception) { showError("Erro DatePicker: " + e.message) }
-        }
+    private fun setupSpinners() {
+        val earnTypes = listOf("Uber", "99", "Part", "Outros")
+        spNewEarnType?.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, earnTypes)
+        
+        val expTypes = listOf("Combustível", "Alimentação", "Manutenção")
+        spNewExpType?.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, expTypes)
+    }
+
+    private fun setupFormatters() {
+        // Aplica mascara R$ para inputs
+        etTotal?.addTextChangedListener(CurrencyTextWatcher(etTotal!!))
+        etNewEarnValue?.addTextChangedListener(CurrencyTextWatcher(etNewEarnValue!!))
+        etNewExpValue?.addTextChangedListener(CurrencyTextWatcher(etNewExpValue!!))
+        
+        // Atualiza badge quando total muda
+        etTotal?.addTextChangedListener(object: TextWatcher {
+            override fun afterTextChanged(s: Editable?) { 
+                badgeTotal?.text = s.toString() 
+            }
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+        })
     }
 
     private fun updateDateLabel() {
-        try {
-            val fmt = SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR"))
-            tvDate?.text = fmt.format(calendar.time)
-        } catch(e: Exception) {}
+        val fmt = SimpleDateFormat("dd/MM/yyyy", localeBR)
+        tvDate?.text = fmt.format(calendar.time)
     }
 
-    private fun setupAutoSum() {
-        val watcher = object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) { calculateTotal() }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        }
+    // --- LÓGICA DE LISTAS DINÂMICAS ---
+    
+    private fun addEarning() {
+        val rawVal = parseMoney(etNewEarnValue?.text.toString())
+        if (rawVal <= 0) return
         
-        // Adiciona listener apenas se o campo existir
-        etUber?.addTextChangedListener(watcher)
-        et99?.addTextChangedListener(watcher)
-        etPart?.addTextChangedListener(watcher)
-        etOutros?.addTextChangedListener(watcher)
+        val type = spNewEarnType?.selectedItem.toString()
+        earningItems.add(HistoryItem(type, type, rawVal))
+        
+        etNewEarnValue?.setText("")
+        renderEarnings()
+        recalcTotal()
+    }
+    
+    private fun addExpense() {
+        val rawVal = parseMoney(etNewExpValue?.text.toString())
+        if (rawVal <= 0) return
+        
+        val type = spNewExpType?.selectedItem.toString()
+        expenseItems.add(HistoryItem(type, type, rawVal))
+        
+        etNewExpValue?.setText("")
+        renderExpenses()
+    }
+    
+    private fun renderEarnings() {
+        containerEarnings?.removeAllViews()
+        earningItems.forEachIndexed { index, item ->
+            val view = LayoutInflater.from(this).inflate(R.layout.item_dynamic_row, containerEarnings, false)
+            view.findViewById<TextView>(R.id.tvLabel).text = item.name
+            view.findViewById<TextView>(R.id.tvValue).text = formatMoney(item.value)
+            view.findViewById<TextView>(R.id.tvValue).setTextColor(android.graphics.Color.parseColor("#10B981"))
+            view.findViewById<View>(R.id.btnDelete).setOnClickListener {
+                earningItems.removeAt(index)
+                renderEarnings()
+                recalcTotal()
+            }
+            containerEarnings?.addView(view)
+        }
+    }
+    
+    private fun renderExpenses() {
+        containerExpenses?.removeAllViews()
+        expenseItems.forEachIndexed { index, item ->
+            val view = LayoutInflater.from(this).inflate(R.layout.item_dynamic_row, containerExpenses, false)
+            view.findViewById<TextView>(R.id.tvLabel).text = item.name
+            view.findViewById<TextView>(R.id.tvValue).text = formatMoney(item.value)
+            view.findViewById<TextView>(R.id.tvValue).setTextColor(android.graphics.Color.parseColor("#EF4444"))
+            view.findViewById<View>(R.id.btnDelete).setOnClickListener {
+                expenseItems.removeAt(index)
+                renderExpenses()
+            }
+            containerExpenses?.addView(view)
+        }
     }
 
-    private fun calculateTotal() {
-        try {
-            val u = etUber?.text.toString().toDoubleOrNull() ?: 0.0
-            val n = et99?.text.toString().toDoubleOrNull() ?: 0.0
-            val p = etPart?.text.toString().toDoubleOrNull() ?: 0.0
-            val o = etOutros?.text.toString().toDoubleOrNull() ?: 0.0
-            val sum = u + n + p + o
-            if (sum > 0) etTotal?.setText(String.format(Locale.US, "%.2f", sum))
-        } catch(e: Exception) {}
+    private fun recalcTotal() {
+        var sum = 0.0
+        earningItems.forEach { sum += it.value }
+        if (sum > 0) {
+            etTotal?.setText(formatMoney(sum)) // A máscara vai limpar o "R$" depois
+        }
     }
 
+    // --- SALVAR ---
     private fun saveEntry() {
-        val total = etTotal?.text.toString().toDoubleOrNull()
-        if (total == null || total <= 0) {
-            Toast.makeText(this, "Informe o Faturamento", Toast.LENGTH_SHORT).show()
-            return
+        try {
+            val total = parseMoney(etTotal?.text.toString())
+            if (total <= 0) {
+                Toast.makeText(this, "Informe o Faturamento Total", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Agrupar ganhos por tipo
+            var u = 0.0; var n = 0.0; var p = 0.0; var o = 0.0
+            earningItems.forEach { 
+                when(it.type) {
+                    "Uber" -> u += it.value
+                    "99" -> n += it.value
+                    "Part" -> p += it.value
+                    else -> o += it.value
+                }
+            }
+            
+            // Agrupar despesas (simplificado: soma tudo)
+            var totalExp = 0.0
+            expenseItems.forEach { totalExp += it.value }
+
+            val sdf = SimpleDateFormat("dd/MM/yyyy", localeBR)
+            val entry = DailyEntry(
+                id = UUID.randomUUID().toString(),
+                timestamp = calendar.timeInMillis,
+                dateString = sdf.format(calendar.time),
+                totalAmount = total,
+                uber = u, pop = n, part = p, others = o,
+                km = etKm?.text.toString().toDoubleOrNull() ?: 0.0,
+                hours = etHoras?.text.toString().toDoubleOrNull() ?: 0.0,
+                expenses = totalExp,
+                runs = (qtdUber?.text.toString().toIntOrNull()?:0) + (qtd99?.text.toString().toIntOrNull()?:0)
+            )
+
+            val repo = DailyRepository(this)
+            repo.save(entry)
+            Toast.makeText(this, "✅ Salvo!", Toast.LENGTH_LONG).show()
+            finish()
+            
+        } catch(e: Exception) {
+            Toast.makeText(this, "Erro: " + e.message, Toast.LENGTH_LONG).show()
         }
+    }
 
-        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR"))
-        val comb = etComb?.text.toString().toDoubleOrNull() ?: 0.0
-        val alim = etAlim?.text.toString().toDoubleOrNull() ?: 0.0
-        val manu = etManu?.text.toString().toDoubleOrNull() ?: 0.0
-        
-        val entry = DailyEntry(
-            id = UUID.randomUUID().toString(),
-            timestamp = calendar.timeInMillis,
-            dateString = sdf.format(calendar.time),
-            totalAmount = total,
-            uber = etUber?.text.toString().toDoubleOrNull() ?: 0.0,
-            pop = et99?.text.toString().toDoubleOrNull() ?: 0.0,
-            part = etPart?.text.toString().toDoubleOrNull() ?: 0.0,
-            others = etOutros?.text.toString().toDoubleOrNull() ?: 0.0,
-            km = etKm?.text.toString().toDoubleOrNull() ?: 0.0,
-            hours = etHoras?.text.toString().toDoubleOrNull() ?: 0.0,
-            expenses = comb + alim + manu,
-            runs = 0 
-        )
-
-        val repo = DailyRepository(this)
-        repo.save(entry)
-        Toast.makeText(this, "✅ Salvo com sucesso!", Toast.LENGTH_LONG).show()
-        finish()
+    // --- UTILITÁRIOS ---
+    private fun parseMoney(text: String): Double {
+        return try {
+            // Remove R$, espaços e converte vírgula para ponto
+            val clean = text.replace("[^0-9]".toRegex(), "")
+            clean.toDouble() / 100.0
+        } catch(e: Exception) { 0.0 }
     }
     
-    private fun showError(msg: String) {
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+    private fun formatMoney(valD: Double): String {
+        return NumberFormat.getCurrencyInstance(localeBR).format(valD)
     }
-    
-    private fun showErrorFatal(e: Exception) {
-        val scroll = ScrollView(this)
-        val layout = LinearLayout(this)
-        layout.orientation = LinearLayout.VERTICAL
-        layout.setPadding(40, 40, 40, 40)
-        layout.setBackgroundColor(android.graphics.Color.WHITE)
-        
-        val title = TextView(this)
-        title.text = "ERRO FATAL (NOVO LANÇAMENTO)"
-        title.textSize = 18f
-        title.setTextColor(android.graphics.Color.RED)
-        title.setPadding(0, 0, 0, 20)
-        
-        val msg = TextView(this)
-        msg.text = e.toString() + "\n\n" + e.stackTraceToString()
-        msg.setTextColor(android.graphics.Color.BLACK)
-        
-        layout.addView(title)
-        layout.addView(msg)
-        scroll.addView(layout)
-        setContentView(scroll)
+
+    // MÁSCARA DINHEIRO
+    inner class CurrencyTextWatcher(private val editText: EditText) : TextWatcher {
+        private var current = ""
+        override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
+            if (s.toString() != current) {
+                editText.removeTextChangedListener(this)
+                
+                val clean = s.toString().replace("[^0-9]".toRegex(), "")
+                val parsed = if (clean.isEmpty()) 0.0 else clean.toDouble() / 100
+                val formatted = NumberFormat.getCurrencyInstance(localeBR).format(parsed)
+                
+                current = formatted
+                editText.setText(formatted)
+                editText.setSelection(formatted.length)
+                
+                editText.addTextChangedListener(this)
+            }
+        }
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun afterTextChanged(s: Editable?) {}
     }
 }
