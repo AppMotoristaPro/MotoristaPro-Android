@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.*
+import android.util.DisplayMetrics
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
@@ -264,8 +265,8 @@ class OcrService : Service() {
     // --- CÉREBRO OCR (Com Filtros) ---
     private fun analyzeScreen(rawText: String): Boolean {
         var cleanText = rawText.lowercase()
-            .replace(Regex("r\$\s*[0-9.,]+\s*/\s*km"), "") 
-            .replace(Regex("\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do"), "")
+            .replace(Regex("""r\$\s*[0-9.,]+\s*/\s*km"""), "") 
+            .replace(Regex("""\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do"""), "")
             .replace("mais de 30 min", "")
             .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
 
@@ -273,14 +274,14 @@ class OcrService : Service() {
         val dists = ArrayList<Double>()
         val times = ArrayList<Double>()
 
-        val pm = Pattern.compile("(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)")
+        val pm = Pattern.compile("""(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)""")
         val matP = pm.matcher(cleanText)
         while (matP.find()) {
             val v = matP.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (v > 4.5 && v < 2000.0) prices.add(v)
         }
 
-        val dm = Pattern.compile("([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)")
+        val dm = Pattern.compile("""([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)""")
         val matD = dm.matcher(cleanText)
         while (matD.find()) {
             var d = matD.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -289,7 +290,7 @@ class OcrService : Service() {
             if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        val tmH = Pattern.compile("([0-9]+)\s*(?:h|hr|hrs|hora)")
+        val tmH = Pattern.compile("""([0-9]+)\s*(?:h|hr|hrs|hora)""")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
             val h = matH.group(1)?.toIntOrNull() ?: 0
@@ -297,7 +298,7 @@ class OcrService : Service() {
         }
         cleanText = matH.replaceAll(" ") 
 
-        val tmM = Pattern.compile("([0-9]+)\s*(?:min|m)(?!in)")
+        val tmM = Pattern.compile("""([0-9]+)\s*(?:min|m)(?!in)""")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
             val m = matM.group(1)?.toDoubleOrNull() ?: 0.0
