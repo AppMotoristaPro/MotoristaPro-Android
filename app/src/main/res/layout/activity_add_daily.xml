@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F8FAFC"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- CABEÇALHO -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Novo Lançamento"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#0F172A"
+            android:layout_marginBottom="20dp"/>
+
+        <!-- DATA -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="15dp"
+            android:elevation="2dp"
+            android:layout_marginBottom="15dp">
+            
+            <TextView
+                android:text="DATA DO TRABALHO"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#64748B"/>
+                
+            <TextView
+                android:id="@+id/tvDate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Selecionar Data"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#2563EB"
+                android:paddingTop="10dp"
+                android:drawableEnd="@android:drawable/ic_menu_today"/>
+        </LinearLayout>
+
+        <!-- GANHOS -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="15dp"
+            android:elevation="2dp"
+            android:layout_marginBottom="15dp">
+            
+            <TextView
+                android:text="FATURAMENTO TOTAL"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#64748B"/>
+                
+            <EditText
+                android:id="@+id/etTotal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="R$ 0.00"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#10B981"
+                android:inputType="numberDecimal"
+                android:backgroundTint="#10B981"/>
+
+            <TextView
+                android:text="Detalhar (Opcional)"
+                android:textSize="10sp"
+                android:layout_marginTop="10dp"
+                android:textColor="#94A3B8"/>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+                <EditText android:id="@+id/etUber" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Uber" android:inputType="numberDecimal" android:textSize="14sp"/>
+                <EditText android:id="@+id/et99" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="99 Pop" android:inputType="numberDecimal" android:textSize="14sp"/>
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+                <EditText android:id="@+id/etPart" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Particular" android:inputType="numberDecimal" android:textSize="14sp"/>
+                <EditText android:id="@+id/etOutros" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:hint="Outros" android:inputType="numberDecimal" android:textSize="14sp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- DESPESAS -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="15dp"
+            android:elevation="2dp"
+            android:layout_marginBottom="15dp">
+            
+            <TextView android:text="DESPESAS DO DIA" android:textSize="11sp" android:textStyle="bold" android:textColor="#EF4444"/>
+            
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="3" android:layout_marginTop="10dp">
+                <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_weight="1">
+                    <TextView android:text="Combustível" android:textSize="10sp"/>
+                    <EditText android:id="@+id/etComb" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:hint="0.00"/>
+                </LinearLayout>
+                <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_weight="1">
+                    <TextView android:text="Alimentação" android:textSize="10sp"/>
+                    <EditText android:id="@+id/etAlim" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:hint="0.00"/>
+                </LinearLayout>
+                <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_weight="1">
+                    <TextView android:text="Manutenção" android:textSize="10sp"/>
+                    <EditText android:id="@+id/etManu" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:hint="0.00"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- OPERACIONAL -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="#FFFFFF"
+            android:padding="15dp"
+            android:elevation="2dp"
+            android:layout_marginBottom="30dp"
+            android:weightSum="2">
+            
+            <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_weight="1" android:paddingEnd="10dp">
+                <TextView android:text="KM TOTAL" android:textSize="11sp" android:textStyle="bold" android:textColor="#64748B"/>
+                <EditText android:id="@+id/etKm" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:hint="0.0"/>
+            </LinearLayout>
+            
+            <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_weight="1" android:paddingStart="10dp">
+                <TextView android:text="HORAS" android:textSize="11sp" android:textStyle="bold" android:textColor="#64748B"/>
+                <EditText android:id="@+id/etHoras" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="numberDecimal" android:hint="0.0"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="SALVAR NO CELULAR"
+            android:backgroundTint="#2563EB"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+    </LinearLayout>
+</ScrollView>
