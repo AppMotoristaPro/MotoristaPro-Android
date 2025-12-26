@@ -39,8 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "motorista_pro_native_db"
                 )
-                // Permite migração destrutiva durante desenvolvimento (apaga dados se mudar esquema)
-                .fallbackToDestructiveMigration() 
+                .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance

@@ -1,5 +1,4 @@
 package com.motoristapro.android.data.dao
-
 import androidx.room.*
 import com.motoristapro.android.data.entities.ManutencaoEntity
 import kotlinx.coroutines.flow.Flow

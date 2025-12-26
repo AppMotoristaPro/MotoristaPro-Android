@@ -1,5 +1,4 @@
-package com.motoristapro.android.data
-
+package com.motoristapro.android.data.entities
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -7,9 +6,7 @@ import androidx.room.PrimaryKey
 data class ManutencaoEntity(
     @PrimaryKey(autoGenerate = true) val localId: Long = 0,
     val serverId: Int? = null,
-    
-    val item: String,      // Ex: Óleo
-    val kmProxima: Double, // KM do odômetro alvo
-    
+    val item: String,
+    val kmProxima: Double,
     val isSynced: Boolean = false
 )

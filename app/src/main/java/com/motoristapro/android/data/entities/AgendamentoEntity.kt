@@ -1,5 +1,4 @@
-package com.motoristapro.android.data
-
+package com.motoristapro.android.data.entities
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -7,14 +6,12 @@ import androidx.room.PrimaryKey
 data class AgendamentoEntity(
     @PrimaryKey(autoGenerate = true) val localId: Long = 0,
     val serverId: Int? = null,
-    
     val cliente: String,
     val dataHora: Long,
     val origem: String,
     val destino: String,
     val valor: Double,
     val observacao: String? = null,
-    val status: String = "pendente", // pendente, concluido
-    
+    val status: String = "pendente",
     val isSynced: Boolean = false
 )

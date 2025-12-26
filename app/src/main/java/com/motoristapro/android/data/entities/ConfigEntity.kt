@@ -1,11 +1,10 @@
-package com.motoristapro.android.data
-
+package com.motoristapro.android.data.entities
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "configs")
 data class ConfigEntity(
-    @PrimaryKey val chave: String, // Ex: 'preco_combustivel', 'meta_semanal'
+    @PrimaryKey val chave: String,
     val valor: String,
     val isSynced: Boolean = false
 )

@@ -127,7 +127,7 @@ class AddDailyActivity : AppCompatActivity() {
                 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@AddDailyActivity, "✅ Guardado no telemóvel!", Toast.LENGTH_LONG).show()
-                    finish() // Fecha e volta pra home
+                    finish()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {

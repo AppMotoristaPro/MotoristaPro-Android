@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("kotlin-kapt") // Essencial para o Room
 }
 
 android {
@@ -9,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.motoristapro.android"
-        minSdk = 26 // MediaProjection requer minSdk mais alto para funcionar bem
+        minSdk = 26
         targetSdk = 34
-        versionCode = 1766696857
-        versionName = "2.0.1766696857"
+        versionCode = 1
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -40,8 +41,20 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     
-    // FASE 3: ML Kit OCR e Coroutines
+    // ML Kit (OCR)
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    
+    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
     implementation("androidx.lifecycle:lifecycle-service:2.6.1")
+    
+    // ROOM DATABASE (Versão Estável)
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
+    
+    // Lifecycle
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.1")
 }

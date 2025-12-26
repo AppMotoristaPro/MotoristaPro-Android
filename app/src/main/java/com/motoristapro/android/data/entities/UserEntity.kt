@@ -1,16 +1,14 @@
-package com.motoristapro.android.data
-
+package com.motoristapro.android.data.entities
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.util.Date
 
 @Entity(tableName = "users")
 data class UserEntity(
-    @PrimaryKey val id: Int, // ID vindo do Servidor (Postgres)
+    @PrimaryKey val id: Int,
     val nome: String,
     val email: String,
-    val planType: String, // 'basic' ou 'premium'
-    val validade: Long?,  // Timestamp da expiração
-    val token: String?,   // Token de Sessão (JWT)
-    val lastSync: Long = 0 // Última sincronização
+    val planType: String,
+    val validade: Long?,
+    val token: String?,
+    val lastSync: Long = 0
 )
