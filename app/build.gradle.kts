@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.motoristapro.android"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 34
-        versionCode = 1766761537
-        versionName = "2.0.1766761537"
+        versionCode = 1766762677
+        versionName = "2.0.1766762677"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -22,7 +22,6 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
-    
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -30,27 +29,15 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
-    buildFeatures {
-        viewBinding = true
-    }
 }
 
 dependencies {
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.android.material:material:1.10.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.cardview:cardview:1.0.0")
     
-    // ML Kit (OCR)
+    // Mantemos ML Kit para o OCR (O único nativo que sobra)
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
-    
-    // GSON (Para salvar dados localmente em JSON)
-    implementation("com.google.code.gson:gson:2.10.1")
-    
-    // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
 }
