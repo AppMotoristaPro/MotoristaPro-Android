@@ -60,17 +60,18 @@ class MainActivity : AppCompatActivity() {
 
             val ptBr = Locale("pt", "BR")
             tvTotalGanho.text = NumberFormat.getCurrencyInstance(ptBr).format(summary.totalEarnings)
-            tvTotalKm.text = String.format("%.0f km", summary.totalKm)
+            tvTotalKm.text = String.format(Locale.US, "%.0f km", summary.totalKm)
             tvTotalCorridas.text = summary.totalRuns.toString()
             
             if (summary.lastEntry != null) {
-                tvEmptyHistory.text = "Último: R$ ${summary.lastEntry.totalAmount} em ${summary.lastEntry.dateString}"
+                val valStr = NumberFormat.getCurrencyInstance(ptBr).format(summary.lastEntry.totalAmount)
+                tvEmptyHistory.text = "Último: $valStr em ${summary.lastEntry.dateString}"
             } else {
-                tvEmptyHistory.text = "Nenhum lançamento."
+                tvEmptyHistory.text = "Nenhum lançamento recente."
             }
 
         } catch (e: Exception) {
-            tvEmptyHistory.text = "Erro ao carregar dados."
+            tvEmptyHistory.text = "Dados vazios."
         }
     }
 
@@ -97,7 +98,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     startService(serviceIntent)
                 }
-                moveTaskToBack(true) // Minimiza o app
+                moveTaskToBack(true)
             }
         }
     }

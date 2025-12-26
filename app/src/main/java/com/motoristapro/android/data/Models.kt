@@ -1,9 +1,9 @@
 package com.motoristapro.android.data
 
 data class DailyEntry(
-    val id: String, // UUID único
+    val id: String, 
     val timestamp: Long,
-    val dateString: String, // "dd/MM/yyyy" para facilitar
+    val dateString: String, 
     val totalAmount: Double,
     val uber: Double,
     val pop: Double,
@@ -13,4 +13,11 @@ data class DailyEntry(
     val hours: Double,
     val expenses: Double,
     val runs: Int
+)
+
+data class DashboardSummary(
+    val totalEarnings: Double,
+    val totalKm: Double,
+    val totalRuns: Int,
+    val lastEntry: DailyEntry?
 )

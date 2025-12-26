@@ -6,7 +6,7 @@ def write_file(path, content):
     print(f"✅ Arquivo Configurado: {path}")
 
 def main():
-    print("📉 Iniciando Plano B: Migração para JSON (Zero KAPT)...")
+    print("📉 Executando Plano B: Migração para JSON (Zero KAPT)...")
 
     # 1. BUILD.GRADLE.KTS (Limpo e Leve)
     # Removemos 'kotlin-kapt' e todas as referencias ao Room.
@@ -58,7 +58,7 @@ dependencies {
     // ML Kit (OCR)
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
     
-    // JSON Parsing (Leve e Rápido)
+    // JSON Parsing (GSON - Leve e Rápido)
     implementation("com.google.code.gson:gson:2.10.1")
     
     // Coroutines (Para não travar a tela enquanto salva)
@@ -68,7 +68,16 @@ dependencies {
 """
     write_file("app/build.gradle.kts", gradle_content)
 
-    # 2. Limpar Cache
+    # 2. Remover arquivos antigos do Room (Data Layer)
+    # Para evitar conflitos de importação
+    base_data = "app/src/main/java/com/motoristapro/android/data"
+    if os.path.exists(base_data):
+        import shutil
+        print("🧹 Limpando camada de dados antiga (Room)...")
+        shutil.rmtree(base_data)
+        os.makedirs(base_data)
+
+    # 3. Limpar Cache
     print("\n🧹 Limpando resíduos de build antigos...")
     os.system("./gradlew clean")
     

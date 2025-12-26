@@ -13,7 +13,6 @@ import com.motoristapro.android.data.DailyEntry
 import com.motoristapro.android.data.DailyRepository
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.UUID
 
 class AddDailyActivity : AppCompatActivity() {
 
@@ -21,11 +20,13 @@ class AddDailyActivity : AppCompatActivity() {
     private lateinit var tvDate: TextView
     private lateinit var etTotal: EditText
     
-    // Inputs
     private lateinit var etUber: EditText
     private lateinit var et99: EditText
     private lateinit var etPart: EditText
     private lateinit var etOutros: EditText
+    private lateinit var etComb: EditText
+    private lateinit var etAlim: EditText
+    private lateinit var etManu: EditText
     private lateinit var etKm: EditText
     private lateinit var etHoras: EditText
 
@@ -47,6 +48,9 @@ class AddDailyActivity : AppCompatActivity() {
         et99 = findViewById(R.id.et99)
         etPart = findViewById(R.id.etPart)
         etOutros = findViewById(R.id.etOutros)
+        etComb = findViewById(R.id.etComb)
+        etAlim = findViewById(R.id.etAlim)
+        etManu = findViewById(R.id.etManu)
         etKm = findViewById(R.id.etKm)
         etHoras = findViewById(R.id.etHoras)
         
@@ -85,7 +89,7 @@ class AddDailyActivity : AppCompatActivity() {
         val p = etPart.text.toString().toDoubleOrNull() ?: 0.0
         val o = etOutros.text.toString().toDoubleOrNull() ?: 0.0
         val sum = u + n + p + o
-        if (sum > 0) etTotal.setText(String.format("%.2f", sum).replace(",", "."))
+        if (sum > 0) etTotal.setText(String.format(Locale.US, "%.2f", sum))
     }
 
     private fun saveEntry() {
@@ -96,6 +100,9 @@ class AddDailyActivity : AppCompatActivity() {
         }
 
         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale("pt", "BR"))
+        val comb = etComb.text.toString().toDoubleOrNull() ?: 0.0
+        val alim = etAlim.text.toString().toDoubleOrNull() ?: 0.0
+        val manu = etManu.text.toString().toDoubleOrNull() ?: 0.0
         
         val entry = DailyEntry(
             id = UUID.randomUUID().toString(),
@@ -108,8 +115,8 @@ class AddDailyActivity : AppCompatActivity() {
             others = etOutros.text.toString().toDoubleOrNull() ?: 0.0,
             km = etKm.text.toString().toDoubleOrNull() ?: 0.0,
             hours = etHoras.text.toString().toDoubleOrNull() ?: 0.0,
-            expenses = 0.0, // Simplificado por enquanto
-            runs = 0 // Simplificado
+            expenses = comb + alim + manu,
+            runs = 0 
         )
 
         try {

@@ -11,13 +11,13 @@ def main():
     
     base_pkg = "app/src/main/java/com/motoristapro/android/data"
     
-    # 1. MODELO DE DADOS (Simples Data Class)
+    # 1. MODELO DE DADOS
     model_kt = """package com.motoristapro.android.data
 
 data class DailyEntry(
-    val id: String, // UUID único
+    val id: String, 
     val timestamp: Long,
-    val dateString: String, // "dd/MM/yyyy" para facilitar
+    val dateString: String, 
     val totalAmount: Double,
     val uber: Double,
     val pop: Double,
@@ -28,8 +28,15 @@ data class DailyEntry(
     val expenses: Double,
     val runs: Int
 )
+
+data class DashboardSummary(
+    val totalEarnings: Double,
+    val totalKm: Double,
+    val totalRuns: Int,
+    val lastEntry: DailyEntry?
+)
 """
-    write_file(f"{base_pkg}/DailyEntry.kt", model_kt)
+    write_file(f"{base_pkg}/Models.kt", model_kt)
 
     # 2. REPOSITÓRIO (Gerenciador do Arquivo)
     repo_kt = """package com.motoristapro.android.data
@@ -38,21 +45,20 @@ import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
-import java.util.UUID
 
 class DailyRepository(private val context: Context) {
     
     private val fileName = "motorista_diary.json"
     private val gson = Gson()
 
-    // Salvar novo registro
     fun save(entry: DailyEntry) {
         val list = getAll().toMutableList()
+        // Remove se já existir com mesmo ID (edição)
+        list.removeAll { it.id == entry.id }
         list.add(entry)
         saveList(list)
     }
 
-    // Pegar todos (Ordenado por data decrescente)
     fun getAll(): List<DailyEntry> {
         val file = File(context.filesDir, fileName)
         if (!file.exists()) return emptyList()
@@ -67,21 +73,19 @@ class DailyRepository(private val context: Context) {
         }
     }
 
-    // Salvar a lista completa no arquivo
     private fun saveList(list: List<DailyEntry>) {
         val json = gson.toJson(list)
         val file = File(context.filesDir, fileName)
         file.writeText(json)
     }
     
-    // Calcular Resumo do Mês Atual
     fun getMonthSummary(): DashboardSummary {
         val all = getAll()
         var total = 0.0
         var km = 0.0
         var runs = 0
         
-        // Aqui poderíamos filtrar por mês, mas vamos somar tudo por enquanto para testar
+        // Soma tudo (futuramente podemos filtrar por mês)
         for (item in all) {
             total += item.totalAmount
             km += item.km
@@ -91,13 +95,6 @@ class DailyRepository(private val context: Context) {
         return DashboardSummary(total, km, runs, if (all.isNotEmpty()) all[0] else null)
     }
 }
-
-data class DashboardSummary(
-    val totalEarnings: Double,
-    val totalKm: Double,
-    val totalRuns: Int,
-    val lastEntry: DailyEntry?
-)
 """
     write_file(f"{base_pkg}/DailyRepository.kt", repo_kt)
 

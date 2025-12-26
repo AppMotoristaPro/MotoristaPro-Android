@@ -11,8 +11,8 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1766727007
-        versionName = "2.0.1766727007"
+        versionCode = 1
+        versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -45,7 +45,7 @@ dependencies {
     // ML Kit (OCR)
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
     
-    // JSON Parsing (Leve e Rápido)
+    // JSON Parsing (GSON - Leve e Rápido)
     implementation("com.google.code.gson:gson:2.10.1")
     
     // Coroutines (Para não travar a tela enquanto salva)
