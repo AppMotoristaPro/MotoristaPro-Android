@@ -97,7 +97,7 @@ class OcrService : Service() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Motorista Pro").setContentText("Robô Ativo")
-            .setSmallIcon(R.drawable.ic_launcher_foreground).setOngoing(true).build()
+            .setSmallIcon(R.mipmap.ic_launcher).setOngoing(true).build()
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
