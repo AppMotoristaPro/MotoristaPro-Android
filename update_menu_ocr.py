@@ -1,4 +1,10 @@
-package com.motoristapro.android
+import os
+
+# Caminho do arquivo
+FILE_PATH = "app/src/main/java/com/motoristapro/android/OcrService.kt"
+
+# Novo conteúdo do arquivo OcrService.kt
+NEW_CONTENT = """package com.motoristapro.android
 
 import android.app.*
 import android.content.BroadcastReceiver
@@ -458,8 +464,8 @@ class OcrService : Service() {
     // --- CÉREBRO OCR (Lógica de Detecção) ---
     private fun analyzeScreen(rawText: String): Boolean {
         var cleanText = rawText.lowercase()
-            .replace(Regex("""r\$\s*[0-9.,]+\s*/\s*km"""), "") 
-            .replace(Regex("""\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do"""), "")
+            .replace(Regex(\"\"\"r\$\s*[0-9.,]+\s*/\s*km\"\"\"), "") 
+            .replace(Regex(\"\"\"\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do\"\"\"), "")
             .replace("mais de 30 min", "")
             .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
 
@@ -467,14 +473,14 @@ class OcrService : Service() {
         val dists = ArrayList<Double>()
         val times = ArrayList<Double>()
 
-        val pm = Pattern.compile("""(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)""")
+        val pm = Pattern.compile(\"\"\"(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)\"\"\")
         val matP = pm.matcher(cleanText)
         while (matP.find()) {
             val v = matP.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (v > 4.5 && v < 2000.0) prices.add(v)
         }
 
-        val dm = Pattern.compile("""([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)""")
+        val dm = Pattern.compile(\"\"\"([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)\"\"\")
         val matD = dm.matcher(cleanText)
         while (matD.find()) {
             var d = matD.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -483,7 +489,7 @@ class OcrService : Service() {
             if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        val tmH = Pattern.compile("""([0-9]+)\s*(?:h|hr|hrs|hora)""")
+        val tmH = Pattern.compile(\"\"\"([0-9]+)\s*(?:h|hr|hrs|hora)\"\"\")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
             val h = matH.group(1)?.toIntOrNull() ?: 0
@@ -491,7 +497,7 @@ class OcrService : Service() {
         }
         cleanText = matH.replaceAll(" ") 
 
-        val tmM = Pattern.compile("""([0-9]+)\s*(?:min|m)(?!in)""")
+        val tmM = Pattern.compile(\"\"\"([0-9]+)\s*(?:min|m)(?!in)\"\"\")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
             val m = matM.group(1)?.toDoubleOrNull() ?: 0.0
@@ -559,3 +565,26 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+def write_service_file():
+    print(f"🚀 Atualizando {FILE_PATH}...")
+    try:
+        with open(FILE_PATH, 'w', encoding='utf-8') as f:
+            f.write(NEW_CONTENT)
+        print("✅ Arquivo atualizado com sucesso!")
+        
+        # Git Automático
+        print("📦 Executando Git...")
+        os.system("git add .")
+        os.system('git commit -m "Feat: Add Floating Menu to Service"')
+        os.system("git push")
+        print("🚀 Push concluído!")
+        
+    except Exception as e:
+        print(f"❌ Erro: {e}")
+
+if __name__ == "__main__":
+    write_service_file()
+
+
