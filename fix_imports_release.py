@@ -1,4 +1,14 @@
-package com.motoristapro.android
+import os
+import re
+import time
+import subprocess
+
+# --- ARQUIVOS ---
+OCR_SERVICE_PATH = "app/src/main/java/com/motoristapro/android/OcrService.kt"
+GRADLE_FILE = "app/build.gradle.kts"
+
+# --- NOVO CONTEÚDO CORRIGIDO (COM IMPORTS) ---
+NEW_OCR_CONTENT = """package com.motoristapro.android
 
 import android.app.*
 import android.content.BroadcastReceiver
@@ -433,8 +443,8 @@ class OcrService : Service() {
 
     private fun analyzeScreen(rawText: String): Boolean {
         var cleanText = rawText.lowercase()
-            .replace(Regex("""r\$\s*[0-9.,]+\s*/\s*km"""), "") 
-            .replace(Regex("""\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do"""), "")
+            .replace(Regex(\"\"\"r\$\s*[0-9.,]+\s*/\s*km\"\"\"), "") 
+            .replace(Regex(\"\"\"\+\s*r\$\s*[0-9.,]+\s*inclu[íi]do\"\"\"), "")
             .replace("mais de 30 min", "")
             .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
 
@@ -442,14 +452,14 @@ class OcrService : Service() {
         val dists = ArrayList<Double>()
         val times = ArrayList<Double>()
 
-        val pm = Pattern.compile("""(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)""")
+        val pm = Pattern.compile(\"\"\"(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)\"\"\")
         val matP = pm.matcher(cleanText)
         while (matP.find()) {
             val v = matP.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
             if (v > 4.5 && v < 2000.0) prices.add(v)
         }
 
-        val dm = Pattern.compile("""([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)""")
+        val dm = Pattern.compile(\"\"\"([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)\"\"\")
         val matD = dm.matcher(cleanText)
         while (matD.find()) {
             var d = matD.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
@@ -458,7 +468,7 @@ class OcrService : Service() {
             if (d > 0.05 && d < 400.0) dists.add(d)
         }
 
-        val tmH = Pattern.compile("""([0-9]+)\s*(?:h|hr|hrs|hora)""")
+        val tmH = Pattern.compile(\"\"\"([0-9]+)\s*(?:h|hr|hrs|hora)\"\"\")
         val matH = tmH.matcher(cleanText)
         while (matH.find()) {
             val h = matH.group(1)?.toIntOrNull() ?: 0
@@ -466,7 +476,7 @@ class OcrService : Service() {
         }
         cleanText = matH.replaceAll(" ") 
 
-        val tmM = Pattern.compile("""([0-9]+)\s*(?:min|m)(?!in)""")
+        val tmM = Pattern.compile(\"\"\"([0-9]+)\s*(?:min|m)(?!in)\"\"\")
         val matM = tmM.matcher(cleanText)
         while (matM.find()) {
             val m = matM.group(1)?.toDoubleOrNull() ?: 0.0
@@ -534,3 +544,45 @@ class OcrService : Service() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(configReceiver)
     }
 }
+"""
+
+def write_and_release():
+    # 1. Escrever o código corrigido
+    print("📝 Escrevendo código com imports corrigidos...")
+    try:
+        with open(OCR_SERVICE_PATH, 'w', encoding='utf-8') as f:
+            f.write(NEW_OCR_CONTENT)
+    except Exception as e:
+        print(f"❌ Erro ao escrever arquivo: {e}")
+        return
+
+    # 2. Atualizar Versão
+    print("🔄 Atualizando versão no Gradle...")
+    if not os.path.exists(GRADLE_FILE):
+        print("❌ Gradle não encontrado.")
+        return
+
+    new_version_code = int(time.time())
+    new_version_name = f"2.0.{new_version_code}"
+    
+    with open(GRADLE_FILE, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    content_new = re.sub(r'versionCode\s*=\s*\d+', f'versionCode = {new_version_code}', content)
+    content_new = re.sub(r'versionName\s*=\s*".*"', f'versionName = "{new_version_name}"', content_new)
+
+    with open(GRADLE_FILE, 'w', encoding='utf-8') as f:
+        f.write(content_new)
+    print(f"   ✅ Versão Bumped: {new_version_name}")
+
+    # 3. Git Push
+    print("📦 Executando Git Automático...")
+    os.system("git add .")
+    os.system(f'git commit -m "Fix: Missing Imports in OCR Service - {new_version_name}"')
+    os.system("git push")
+    print("🚀 PUSH REALIZADO!")
+
+if __name__ == "__main__":
+    write_and_release()
+
+
