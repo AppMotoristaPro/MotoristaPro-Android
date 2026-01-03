@@ -1,0 +1,575 @@
+package com.motoristapro.android
+
+import android.app.*
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ServiceInfo
+import android.graphics.*
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.media.ImageReader
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
+import android.os.*
+import android.util.DisplayMetrics
+import android.util.TypedValue
+import android.view.*
+import android.widget.*
+import androidx.core.app.NotificationCompat
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.*
+import java.util.regex.Pattern
+import kotlin.math.abs
+
+class OcrService : Service() {
+
+    private lateinit var windowManager: WindowManager
+    
+    // Views
+    private var bubbleView: View? = null
+    private var menuView: View? = null
+    private var settingsView: View? = null
+    private var infoCardView: LinearLayout? = null
+    private var iconView: ImageView? = null
+    
+    // UI Elements
+    private lateinit var tvAppBadge: TextView
+    private lateinit var tvValorTopo: TextView
+    private lateinit var tvDadosMeio: TextView
+    private lateinit var tvResultadosBaixo: TextView
+    private lateinit var tvDicaAcao: TextView
+    
+    private lateinit var etGoodKm: EditText
+    private lateinit var etBadKm: EditText
+    private lateinit var etGoodHour: EditText
+    private lateinit var etBadHour: EditText
+
+    // System Vars
+    private var mediaProjection: MediaProjection? = null
+    private var virtualDisplay: VirtualDisplay? = null
+    private var imageReader: ImageReader? = null
+    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val scope = CoroutineScope(Dispatchers.Main + Job())
+    
+    // Configs (Mutable Properties)
+    private var goodKm: Double = 2.0
+    private var badKm: Double = 1.5
+    private var goodHour: Double = 60.0
+    private var badHour: Double = 40.0
+    
+    // State (Mutable Properties)
+    private var isMonitoring: Boolean = true
+    private var isMenuOpen: Boolean = false
+    private var isSettingsOpen: Boolean = false
+    private var screenWidth: Int = 0
+    private var screenHeight: Int = 0
+    private var screenDensity: Int = 0
+    
+    private lateinit var bubbleParams: WindowManager.LayoutParams
+    private lateinit var menuParams: WindowManager.LayoutParams
+    private lateinit var settingsParams: WindowManager.LayoutParams
+
+    private val snapshotReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (isMonitoring && !isMenuOpen && !isSettingsOpen) {
+                takeSnapshot()
+            }
+        }
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        loadConfigs()
+        
+        val filter = IntentFilter("ACTION_TAKE_SNAPSHOT")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(snapshotReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(snapshotReceiver, filter)
+        }
+        
+        try {
+            startForegroundServiceCompat()
+            createBubble()
+            createMenu()
+            createSettingsView()
+            createInfoCard()
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+    
+    private fun loadConfigs() {
+        val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)
+        goodKm = prefs.getFloat("good_km", 2.0f).toDouble()
+        badKm = prefs.getFloat("bad_km", 1.5f).toDouble()
+        goodHour = prefs.getFloat("good_hour", 60.0f).toDouble()
+        badHour = prefs.getFloat("bad_hour", 40.0f).toDouble()
+    }
+
+    private fun saveConfigsLocally() {
+        try {
+            val gKm = etGoodKm.text.toString().toDoubleOrNull() ?: 2.0
+            val bKm = etBadKm.text.toString().toDoubleOrNull() ?: 1.5
+            val gHr = etGoodHour.text.toString().toDoubleOrNull() ?: 60.0
+            val bHr = etBadHour.text.toString().toDoubleOrNull() ?: 40.0
+
+            val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putFloat("good_km", gKm.toFloat())
+                .putFloat("bad_km", bKm.toFloat())
+                .putFloat("good_hour", gHr.toFloat())
+                .putFloat("bad_hour", bHr.toFloat())
+                .apply()
+
+            this.goodKm = gKm
+            this.badKm = bKm
+            this.goodHour = gHr
+            this.badHour = bHr
+
+            closeSettings()
+            Toast.makeText(this, "Salvo com sucesso!", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Erro ao salvar", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startForegroundServiceCompat() {
+        val channelId = "ocr_service_channel"
+        val channel = NotificationChannel(channelId, "Motorista Pro Robô", NotificationManager.IMPORTANCE_LOW)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        
+        val stopIntent = Intent(this, OcrService::class.java).apply { action = "STOP_SERVICE" }
+        val stopPendingIntent = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Robô Ativo")
+            .setContentText("Notificações Liberadas")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Encerrar", stopPendingIntent)
+            .setOngoing(true)
+            .build()
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(1, notification)
+        }
+    }
+
+    private fun takeSnapshot() {
+        if (mediaProjection == null || imageReader == null) return
+
+        scope.launch(Dispatchers.IO) {
+            try {
+                virtualDisplay = mediaProjection!!.createVirtualDisplay(
+                    "Snapshot", screenWidth, screenHeight, screenDensity,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    imageReader!!.surface, null, null
+                )
+
+                delay(350) 
+
+                val image = imageReader!!.acquireLatestImage()
+                virtualDisplay?.release()
+                virtualDisplay = null
+
+                if (image != null) processImage(image)
+
+            } catch (e: Exception) {
+                virtualDisplay?.release()
+                virtualDisplay = null
+            }
+        }
+    }
+
+    private fun processImage(image: android.media.Image) {
+        try {
+            val planes = image.planes
+            val buffer = planes[0].buffer
+            val pixelStride = planes[0].pixelStride
+            val rowStride = planes[0].rowStride
+            val rowPadding = rowStride - pixelStride * screenWidth
+            
+            val bitmap = Bitmap.createBitmap(screenWidth + rowPadding / pixelStride, screenHeight, Bitmap.Config.ARGB_8888)
+            bitmap.copyPixelsFromBuffer(buffer)
+            image.close()
+
+            val canvas = Canvas(bitmap)
+            val paint = Paint()
+            paint.color = Color.BLACK
+            paint.style = Paint.Style.FILL
+            canvas.drawRect(0f, 0f, bitmap.width.toFloat(), bitmap.height * 0.05f, paint)
+
+            val inputImage = InputImage.fromBitmap(bitmap, 0)
+            recognizer.process(inputImage)
+                .addOnSuccessListener { text -> analyzeText(text.text) }
+                .addOnFailureListener { }
+                
+        } catch (e: Exception) {
+            try { image.close() } catch (x: Exception) {}
+        }
+    }
+
+    private fun analyzeText(rawText: String) {
+        val baseCleanText = rawText.lowercase()
+            .replace(Regex("""r\$\s*[0-9.,]+\s*/\s*km"""), "")
+            .replace("mais de 30 min", "")
+            .replace("[^0-9a-zA-Z$,. ]".toRegex(), " ")
+
+        // 1. Detect App (Using Immutable Val)
+        val detectedApp: String? = if (
+            baseCleanText.contains("uberx") || 
+            baseCleanText.contains("comfort") || 
+            baseCleanText.contains("flash") || 
+            baseCleanText.contains("prioridade") || 
+            baseCleanText.contains("uber pet") || 
+            baseCleanText.contains("uber black")
+        ) "UBER" 
+        else if (
+            baseCleanText.contains("99") || 
+            baseCleanText.contains("dinheiro") || 
+            baseCleanText.contains("pagamento no app") || 
+            baseCleanText.contains("negocia")
+        ) "99" 
+        else null
+
+        if (detectedApp == null) return
+
+        val prices = ArrayList<Double>()
+        val dists = ArrayList<Double>()
+        val times = ArrayList<Double>()
+        
+        // Regex Logic (No local vars reassigned)
+        val matP = Pattern.compile("""(?:r\$|rs|\$)\s*([0-9]+(?:[.,][0-9]{0,2})?)""").matcher(baseCleanText)
+        while (matP.find()) { 
+            val v = matP.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+            if (v > 4.5 && v < 2000.0) prices.add(v) 
+        }
+        
+        val matD = Pattern.compile("""([0-9]+(?:[.,][0-9]+)?)\s*(km|m)(?!in)""").matcher(baseCleanText)
+        while (matD.find()) { 
+            val rawD = matD.group(1)?.replace(",", ".")?.toDoubleOrNull() ?: 0.0
+            val unit = matD.group(2)
+            val finalD = if (unit == "m") rawD / 1000.0 else rawD
+            if (finalD > 0.05 && finalD < 400.0) dists.add(finalD) 
+        }
+        
+        val matH = Pattern.compile("""([0-9]+)\s*(?:h|hr|hrs|hora)""").matcher(baseCleanText)
+        while (matH.find()) { 
+            val h = matH.group(1)?.toIntOrNull() ?: 0
+            if (h > 0) times.add((h * 60).toDouble()) 
+        }
+        
+        val textForMins = matH.replaceAll(" ")
+        val matM = Pattern.compile("""([0-9]+)\s*(?:min|m)(?!in)""").matcher(textForMins)
+        while (matM.find()) { 
+            val m = matM.group(1)?.toDoubleOrNull() ?: 0.0
+            if (m > 0) times.add(m) 
+        }
+
+        if (prices.isEmpty() || dists.size < 2 || times.size < 2) return
+
+        prices.sortDescending()
+        dists.sortDescending()
+        times.sortDescending()
+        
+        val finalPrice = prices[0]
+        val finalDist = dists[0] + dists[1]
+        val finalTime = if (times.size >= 3) times[0] + times[1] + times[2] else times[0] + times[1]
+
+        if (finalPrice > 0 && finalDist > 0 && finalTime > 0) {
+            val valPerKm = if (finalDist > 0) finalPrice / finalDist else 0.0
+            val valPerHour = if (finalTime > 0) (finalPrice / finalTime) * 60 else 0.0
+            
+            // LÓGICA FUNCIONAL: Sem 'var' para cores
+            // Definimos um Triple (Cor, Mensagem, Alpha) de uma vez só
+            val resultStyle = if (valPerKm >= goodKm && valPerHour >= goodHour) {
+                Triple(Color.parseColor("#4ADE80"), "BOA! 🚀", "#334ADE80")
+            } else if (valPerKm <= badKm && valPerHour <= badHour) {
+                Triple(Color.parseColor("#F87171"), "PREJUÍZO 🛑", "#33F87171")
+            } else {
+                Triple(Color.parseColor("#FACC15"), "MÉDIA 🤔", "#33FACC15")
+            }
+
+            val (finalColor, finalMsg, finalAlpha) = resultStyle
+            
+            val bgDica = GradientDrawable().apply { cornerRadius = 15f; setColor(Color.parseColor(finalAlpha)) }
+            showCard(finalPrice, finalDist, finalTime, valPerKm, valPerHour, finalColor, finalMsg, bgDica, detectedApp)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == "STOP_SERVICE") { stopSelf(); return START_NOT_STICKY }
+        val resultCode = intent?.getIntExtra("RESULT_CODE", 0) ?: 0
+        val resultData = intent?.getParcelableExtra<Intent>("RESULT_DATA")
+        if (resultCode != 0 && resultData != null) setupProjectionEngine(resultCode, resultData)
+        return START_STICKY
+    }
+
+    private fun setupProjectionEngine(code: Int, data: Intent) {
+        val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        mediaProjection = mpManager.getMediaProjection(code, data)
+        mediaProjection?.registerCallback(object : MediaProjection.Callback() { override fun onStop() { super.onStop(); stopSelf() } }, null)
+        
+        val metrics = DisplayMetrics()
+        windowManager.defaultDisplay.getMetrics(metrics)
+        
+        val rawWidth = metrics.widthPixels
+        val rawHeight = metrics.heightPixels
+        this.screenDensity = metrics.densityDpi
+        
+        // Atribuição direta às propriedades da classe
+        this.screenWidth = rawWidth / 2
+        this.screenHeight = rawHeight / 2
+        
+        imageReader = ImageReader.newInstance(this.screenWidth, this.screenHeight, PixelFormat.RGBA_8888, 2)
+    }
+
+    // --- UI ---
+    private fun createBubble() {
+        val bubbleLayout = FrameLayout(this)
+        bubbleLayout.background = null 
+        iconView = ImageView(this).apply { 
+            setImageResource(R.mipmap.ic_launcher_round)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            clipToOutline = true
+            outlineProvider = object : ViewOutlineProvider() { override fun getOutline(view: View, outline: Outline) { outline.setOval(0, 0, view.width, view.height) } } 
+        }
+        val border = View(this).apply { background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setStroke(3, Color.WHITE); setColor(Color.TRANSPARENT) } }
+        bubbleLayout.addView(iconView, FrameLayout.LayoutParams(160, 160))
+        bubbleLayout.addView(border, FrameLayout.LayoutParams(160, 160))
+        
+        bubbleLayout.setOnTouchListener(object : View.OnTouchListener {
+            private var initialX = 0
+            private var initialY = 0
+            private var initialTouchX = 0f
+            private var initialTouchY = 0f
+            private var isDrag = false
+            override fun onTouch(v: View?, event: MotionEvent?): Boolean {
+                when (event!!.action) {
+                    MotionEvent.ACTION_DOWN -> { initialX = bubbleParams.x; initialY = bubbleParams.y; initialTouchX = event.rawX; initialTouchY = event.rawY; isDrag = false; return true }
+                    MotionEvent.ACTION_MOVE -> { 
+                        val dx = (event.rawX - initialTouchX).toInt()
+                        val dy = (event.rawY - initialTouchY).toInt()
+                        if (abs(dx) > 10 || abs(dy) > 10) { 
+                            isDrag = true
+                            bubbleParams.x = initialX + dx
+                            bubbleParams.y = initialY + dy
+                            windowManager.updateViewLayout(bubbleView, bubbleParams)
+                            if (isMenuOpen) closeMenu() 
+                        }
+                        return true 
+                    }
+                    MotionEvent.ACTION_UP -> { if (!isDrag) toggleMenu(); return true }
+                }
+                return false
+            }
+        })
+        
+        bubbleView = bubbleLayout
+        bubbleParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START; x = 20; y = 300 }
+        
+        windowManager.addView(bubbleView, bubbleParams)
+    }
+
+    private fun createMenu() {
+        val layout = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 25, 0, 25)
+            background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 40f; setStroke(1, Color.parseColor("#CBD5E1")) }
+            elevation = 30f 
+        }
+        layout.addView(TextView(this).apply { text = "MOTORISTA PRO"; textSize = 11f; setTextColor(Color.parseColor("#94A3B8")); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(0, 0, 0, 15) })
+        layout.addView(createMenuItem("⏯", "Pausar / Retomar", Color.parseColor("#0F172A")) { toggleMonitoring(); closeMenu() })
+        layout.addView(createMenuItem("⚙️", "Configurar Robô", Color.parseColor("#2563EB")) { closeMenu(); openSettings() })
+        layout.addView(createMenuItem("📱", "Abrir Aplicativo", Color.parseColor("#0F172A")) { openApp("home"); closeMenu() })
+        layout.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(-1, 2).apply { setMargins(30, 10, 30, 10) }; setBackgroundColor(Color.parseColor("#F1F5F9")) })
+        layout.addView(createMenuItem("❌", "Encerrar Robô", Color.parseColor("#EF4444")) { stopSelf() })
+        
+        menuView = layout
+        menuParams = WindowManager.LayoutParams(
+            600, WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        
+        menuView!!.visibility = View.GONE
+        windowManager.addView(menuView, menuParams)
+    }
+    
+    private fun createMenuItem(icon: String, text: String, textColor: Int, onClick: () -> Unit): View {
+        val container = LinearLayout(this).apply { 
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(50, 30, 50, 30)
+            setOnClickListener { onClick() } 
+        }
+        container.addView(TextView(this).apply { text = icon; textSize = 20f; setPadding(0, 0, 30, 0) })
+        container.addView(TextView(this).apply { text = text; textSize = 15f; setTextColor(textColor); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) })
+        return container
+    }
+
+    private fun createSettingsView() {
+        val layout = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 50, 50, 50)
+            background = GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 45f }
+            elevation = 50f 
+        }
+        layout.addView(TextView(this).apply { text = "Configuração"; textSize = 20f; setTextColor(Color.parseColor("#0F172A")); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(0, 0, 0, 40) })
+        
+        fun createInput(label: String, initVal: Double): EditText {
+            val et = EditText(this).apply { 
+                setText(initVal.toString())
+                inputType = 8194 
+                setTextColor(Color.BLACK)
+                background = GradientDrawable().apply { setColor(Color.parseColor("#F1F5F9")); cornerRadius = 20f }
+                setPadding(40, 30, 40, 30)
+                textSize = 16f
+                typeface = Typeface.DEFAULT_BOLD 
+            }
+            layout.addView(LinearLayout(this).apply { 
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, 0, 0, 25)
+                addView(TextView(context).apply { text = label; textSize = 12f; setTextColor(Color.parseColor("#64748B")); typeface = Typeface.DEFAULT_BOLD; setPadding(10, 0, 0, 8) })
+                addView(et) 
+            })
+            return et
+        }
+        
+        etGoodKm = createInput("KM Ótimo (>)", goodKm)
+        etBadKm = createInput("KM Ruim (<)", badKm)
+        etGoodHour = createInput("Hora Ótima (>)", goodHour)
+        etBadHour = createInput("Hora Ruim (<)", badHour)
+        
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, 30, 0, 0) }
+        row.addView(Button(this).apply { text = "Cancelar"; setTextColor(Color.parseColor("#64748B")); background = null; setOnClickListener { closeSettings() }; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
+        row.addView(Button(this).apply { text = "Salvar"; setTextColor(Color.WHITE); background = GradientDrawable().apply { setColor(Color.parseColor("#2563EB")); cornerRadius = 50f }; setOnClickListener { saveConfigsLocally() }; layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = 15 } })
+        
+        layout.addView(row)
+        settingsView = layout
+        settingsParams = WindowManager.LayoutParams(
+            (resources.displayMetrics.widthPixels * 0.9).toInt(), WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_DIM_BEHIND,
+            PixelFormat.TRANSLUCENT
+        ).apply { dimAmount = 0.6f; gravity = Gravity.CENTER; softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE }
+        
+        settingsView!!.visibility = View.GONE
+        windowManager.addView(settingsView, settingsParams)
+    }
+
+    private fun createInfoCard() {
+        infoCardView = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL
+            setPadding(30, 25, 30, 25)
+            visibility = View.GONE
+            setOnClickListener { hideCard() }
+            background = GradientDrawable().apply { cornerRadius = 40f; setColor(Color.parseColor("#0F172A")); setStroke(2, Color.parseColor("#33FFFFFF")) } 
+        }
+        
+        tvAppBadge = TextView(this).apply { 
+            text = "UBER"
+            textSize = 10f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(15, 5, 15, 5)
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { cornerRadius = 10f; setColor(Color.parseColor("#33FFFFFF")) }
+            layoutParams = LinearLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = 10 } 
+        }
+        
+        tvValorTopo = TextView(this).apply { text = "R$ --"; textSize = 26f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }
+        tvDadosMeio = TextView(this).apply { text = "--"; textSize = 14f; setTextColor(Color.parseColor("#E2E8F0")); gravity = Gravity.CENTER; setPadding(0, 2, 0, 10) }
+        tvResultadosBaixo = TextView(this).apply { text = "--"; textSize = 18f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }
+        tvDicaAcao = TextView(this).apply { text = "..."; textSize = 13f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(10, 5, 10, 5); layoutParams = LinearLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER_HORIZONTAL; setMargins(0, 15, 0, 0) } }
+        
+        infoCardView!!.addView(tvAppBadge)
+        infoCardView!!.addView(tvValorTopo)
+        infoCardView!!.addView(tvDadosMeio)
+        infoCardView!!.addView(tvResultadosBaixo)
+        infoCardView!!.addView(tvDicaAcao)
+        
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL; y = 80; width = (resources.displayMetrics.widthPixels * 0.65).toInt() }
+        
+        windowManager.addView(infoCardView, params)
+    }
+
+    private fun toggleMonitoring() {
+        isMonitoring = !isMonitoring
+        if (isMonitoring) { iconView?.alpha = 1.0f; Toast.makeText(this, "Monitoramento Retomado", Toast.LENGTH_SHORT).show() }
+        else { iconView?.alpha = 0.5f; hideCard(); Toast.makeText(this, "Pausado", Toast.LENGTH_SHORT).show() }
+    }
+    
+    private fun openSettings() { isSettingsOpen = true; settingsView!!.visibility = View.VISIBLE; windowManager.updateViewLayout(settingsView, settingsParams) }
+    private fun closeSettings() { isSettingsOpen = false; settingsView!!.visibility = View.GONE }
+    private fun toggleMenu() { if (isMenuOpen) closeMenu() else openMenu() }
+    private fun openMenu() { isMenuOpen = true; menuParams.x = bubbleParams.x; menuParams.y = bubbleParams.y + bubbleView!!.height + 15; menuView!!.visibility = View.VISIBLE; windowManager.updateViewLayout(menuView, menuParams); Handler(Looper.getMainLooper()).postDelayed({ if (isMenuOpen) closeMenu() }, 5000) }
+    private fun closeMenu() { isMenuOpen = false; menuView!!.visibility = View.GONE }
+    private fun hideCard() { Handler(Looper.getMainLooper()).post { if (infoCardView?.visibility == View.VISIBLE) { infoCardView?.visibility = View.GONE; bubbleView?.visibility = View.VISIBLE } } }
+    
+    private fun openApp(target: String) { 
+        try { 
+            val i = packageManager.getLaunchIntentForPackage(packageName)
+            i?.addFlags(268435456)
+            if(target=="config") i?.putExtra("NAVIGATE_TO", "/monitoramento")
+            if(i!=null) startActivity(i) 
+        } catch(e:Exception){} 
+    }
+
+    private fun showCard(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double, color: Int, msg: String, bgDica: Drawable, detectedApp: String) {
+        Handler(Looper.getMainLooper()).post {
+            bubbleView?.visibility = View.GONE; infoCardView?.visibility = View.VISIBLE
+            val badgeBg = GradientDrawable().apply { cornerRadius = 10f }
+
+            if (detectedApp == "UBER") {
+                tvAppBadge.visibility = View.VISIBLE
+                tvAppBadge.text = "UBER"
+                tvAppBadge.setTextColor(Color.WHITE)
+                badgeBg.setColor(Color.BLACK)
+            } else if (detectedApp == "99") {
+                tvAppBadge.visibility = View.VISIBLE
+                tvAppBadge.text = "99"
+                tvAppBadge.setTextColor(Color.BLACK)
+                badgeBg.setColor(Color.parseColor("#F7C948"))
+            } else {
+                tvAppBadge.visibility = View.GONE
+            }
+
+            tvAppBadge.background = badgeBg
+            tvValorTopo.text = String.format("R$ %.2f", price)
+            tvDadosMeio.text = String.format("%.1f km • %.0f min", dist, time)
+            tvResultadosBaixo.text = String.format("R$ %.2f/km • R$ %.2f/h", valKm, valHora)
+            tvResultadosBaixo.setTextColor(color)
+            tvDicaAcao.text = msg
+            tvDicaAcao.setTextColor(color)
+            tvDicaAcao.background = bgDica
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(snapshotReceiver)
+        try { 
+            if (bubbleView != null) windowManager.removeView(bubbleView)
+            if (menuView != null) windowManager.removeView(menuView)
+            if (settingsView != null) windowManager.removeView(settingsView)
+            if (infoCardView != null) windowManager.removeView(infoCardView)
+        } catch (e: Exception) {}
+    }
+}

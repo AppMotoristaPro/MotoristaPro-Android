@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "990151984574",
+    "project_id": "motoristapro-f9beb",
+    "storage_bucket": "motoristapro-f9beb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:990151984574:android:ee631e3ac0ad4acaa9a5ef",
+        "android_client_info": {
+          "package_name": "com.motoristapro.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "990151984574-9f3nag4a2q1ljhr6l3tr0mn9nrcd7tkb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.motoristapro.android",
+            "certificate_hash": "44a44a0e119260ba6d60806e2f5f6197f01a2e26"
+          }
+        },
+        {
+          "client_id": "990151984574-ikb32477s4l825fekva236j6jd0d7mgp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKdUEBfIurmAlwmHhrzjpToxBvTNMShI0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "990151984574-ikb32477s4l825fekva236j6jd0d7mgp.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,121 @@
+
+================================================================================
+ARQUIVO: build.gradle.kts
+================================================================================
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    id("com.google.gms.google-services") version "4.4.0" apply false
+    id("com.android.application") version "8.2.0" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+}
+
+
+================================================================================
+ARQUIVO: gradle.properties
+================================================================================
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+android.enableJetifier=true
+
+================================================================================
+ARQUIVO: rentabilidade_hora.md
+================================================================================
+📊 Relatório Técnico v2: Rentabilidade por Horário (Edge Computing)
+Data: 02 de Janeiro de 2026
+Status: Aprovado para Desenvolvimento
+Arquitetura: Edge Computing (Processamento Local)
+1. Resumo da Mudança de Estratégia
+Inicialmente, planejou-se enviar todos os dados brutos de leitura (OCR) para o servidor. Devido ao alto risco de sobrecarga do banco de dados e custos de infraestrutura, a estratégia foi alterada para Edge Computing.
+O Novo Conceito:
+O aplicativo Android (Cliente) será responsável por processar, filtrar e calcular as médias matemáticas. O Servidor (Backend) receberá apenas o resultado final agregado (a média por hora), reduzindo o tráfego de dados em 94%.
+2. Fluxo de Dados (Data Flow)
+A. Coleta e Processamento Local (Android)
+O ciclo de vida do dado dentro do celular do usuário será:
+ * Leitura (OCR): O robô lê a tela (ex: R$ 20,00 | 10km | 30min).
+ * Filtro de Sanidade (Sanity Check):
+   * Regra: Se R$/KM > 10.00 ou R$/KM < 0.50, descarta a leitura (provável erro de OCR ou bug do app de transporte).
+   * Regra: Se Distância > 100km, descarta.
+ * Agregação Local (Room Database):
+   * Em vez de salvar a corrida, o app atualiza uma tabela local temporária: HourlyStats.
+   * Se já existe registro para a hora 14:00, o app recalcula a média incrementalmente.
+ * Compactação:
+   * A cada 3 horas (ou gatilho de Wi-Fi), o app monta um pacote JSON leve contendo apenas as médias das últimas horas.
+B. Sincronização (API)
+O payload enviado ao servidor será minúsculo e anônimo:
+{
+  "user_id": 55,
+  "date": "2026-01-02",
+  "stats": [
+    { "hour": 14, "avg_km": 1.80, "avg_hour": 35.00, "count": 12 },
+    { "hour": 15, "avg_km": 2.10, "avg_hour": 42.50, "count": 8 }
+  ]
+}
+
+C. Armazenamento (Backend)
+O servidor apenas valida o usuário e insere/atualiza as médias na tabela de estatísticas globais. Não há cálculo pesado no lado do servidor.
+3. Comparativo de Impacto
+| Métrica | Modelo Antigo (Raw Data) | Modelo Novo (Edge Computing) | Ganho |
+|---|---|---|---|
+| Registros no Banco/Dia | ~400.000 (Crítico) | ~24.000 (Seguro) | 94% Menos Dados |
+| Privacidade | Risco Médio (Dados de corrida) | Risco Zero (Apenas médias) | Blindado (LGPD) |
+| Processamento Servidor | Alto (Média de milhões de linhas) | Baixo (Leitura direta) | Dashboard Instantâneo |
+| Consumo Bateria/Dados | Alto (Envio constante) | Mínimo (Envio em lote) | Melhor UX |
+4. Estrutura de Dados
+No Android (Room / SQLite Local)
+Tabela: local_hourly_stats
+ * hour (Int, PK): 0 a 23
+ * date (String, PK): YYYY-MM-DD
+ * sum_price_km (Double): Soma acumulada dos valores/km
+ * sum_price_hour (Double): Soma acumulada dos valores/hora
+ * read_count (Int): Quantidade de leituras feitas nessa hora (para calcular média final)
+ * synced (Boolean): Se já foi enviado para o servidor.
+No Backend (Postgres)
+Tabela: heatmap_metrics
+ * id (PK)
+ * city_code (Index): Para filtrar por região no futuro (ex: SP, RJ).
+ * day_of_week (0-6): Domingo a Sábado (Agrupamento principal).
+ * hour (0-23)
+ * avg_val_km (Decimal)
+ * avg_val_hour (Decimal)
+ * data_points (BigInt): Peso estatístico (quantas leituras compõem essa média).
+5. Roadmap de Desenvolvimento
+Fase 1: Inteligência Local (Android)
+ * [ ] Criar entidade HourlyStats no Room Database.
+ * [ ] Implementar lógica de SanityCheck no OcrService.kt.
+ * [ ] Criar Worker (WorkManager) para sincronizar a cada 3 horas.
+Fase 2: Recepção de Dados (Backend)
+ * [ ] Criar modelo HeatmapMetrics.
+ * [ ] Criar rota /api/metrics/sync para receber o JSON compactado.
+ * [ ] Lógica simples: Recebeu -> Atualizou a média global do dia da semana.
+Fase 3: Visualização (Frontend)
+ * [ ] Criar gráfico de barras no Dashboard (Chart.js).
+ * [ ] Eixo X: Horas (00h-23h).
+ * [ ] Eixo Y: Rentabilidade.
+ * [ ] Cores dinâmicas: Verde (Acima da média), Vermelho (Abaixo).
+6. Conclusão
+A abordagem de Edge Computing viabiliza a funcionalidade "Mapa de Calor de Rentabilidade" dentro da infraestrutura atual (Render Free Tier/Starter), eliminando custos adicionais e garantindo privacidade total aos usuários. A lógica complexa sai do servidor (caro) e vai para o dispositivo (grátis).
+
+
+
+================================================================================
+ARQUIVO: settings.gradle.kts
+================================================================================
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+rootProject.name = "MotoristaPro-Android"
+include(":app")
+

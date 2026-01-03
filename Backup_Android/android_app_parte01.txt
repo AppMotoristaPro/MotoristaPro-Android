@@ -1,0 +1,121 @@
+
+================================================================================
+ARQUIVO: app/build.gradle.kts
+================================================================================
+plugins {
+    id("com.google.gms.google-services")
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.motoristapro.android"
+    compileSdk = 34
+    sourceSets {
+        getByName("main") {
+            manifest.srcFile("src/main/AndroidManifest.xml")
+            java.srcDirs("src/main/java")
+            res.srcDirs("src/main/res")
+        }
+    }
+
+
+    defaultConfig {
+        applicationId = "com.motoristapro.android"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 6
+        versionName = "1.4"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("motorista.jks")
+            storePassword = "motorista123"
+            keyAlias = "key0"
+            keyPassword = "motorista123"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+dependencies {
+    implementation("com.google.firebase:firebase-messaging-ktx:23.4.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+}
+
+
+================================================================================
+ARQUIVO: app/google-services.json
+================================================================================
+{
+  "project_info": {
+    "project_number": "990151984574",
+    "project_id": "motoristapro-f9beb",
+    "storage_bucket": "motoristapro-f9beb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:990151984574:android:ee631e3ac0ad4acaa9a5ef",
+        "android_client_info": {
+          "package_name": "com.motoristapro.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "990151984574-9f3nag4a2q1ljhr6l3tr0mn9nrcd7tkb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.motoristapro.android",
+            "certificate_hash": "44a44a0e119260ba6d60806e2f5f6197f01a2e26"
+          }
+        },
+        {
+          "client_id": "990151984574-ikb32477s4l825fekva236j6jd0d7mgp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKdUEBfIurmAlwmHhrzjpToxBvTNMShI0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "990151984574-ikb32477s4l825fekva236j6jd0d7mgp.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+
