@@ -94,8 +94,10 @@ import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AlertDialog
 import android.app.Dialog
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -118,6 +120,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private val NOTIFICATION_PERMISSION_CODE = 101
+    
+    private val jsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val js = intent?.getStringExtra("js")
+            if (js != null) {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,22 +137,37 @@ class MainActivity : ComponentActivity() {
         webView = findViewById(R.id.webView)
         setupWebView(webView)
         
-        // 1. Carrega o Site
-        webView.loadUrl("https://motorista-pro-app.onrender.com")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            registerReceiver(jsReceiver, IntentFilter("wwebview.js_command"), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(jsReceiver, IntentFilter("wwebview.js_command"))
+        }
 
-        // 2. Pede Permissão de Notificação
+        handleIntent(intent)
         askNotificationPermission()
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == "OPEN_ADD_SCREEN") {
+            val h = intent.getIntExtra("h_val", 0)
+            val m = intent.getIntExtra("m_val", 0)
+            webView.loadUrl("https://motorista-pro-app.onrender.com/adicionar?tempo_cronometro=$h:$m")
+        } else if (webView.url == null) {
+            webView.loadUrl("https://motorista-pro-app.onrender.com")
+        }
     }
 
     private fun setupWebView(view: WebView) {
         val settings = view.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        
-        // User Agent para Google Login
         val defaultUA = settings.userAgentString
         settings.userAgentString = defaultUA.replace("; wv", "") + " (MotoristaPro)"
-        
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = true
         
@@ -150,8 +176,6 @@ class MainActivity : ComponentActivity() {
         }
 
         view.webViewClient = WebViewClient()
-        
-        // Gerenciamento de Popups (Google Login)
         view.webChromeClient = object : WebChromeClient() {
             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
                 val newWebView = WebView(this@MainActivity)
@@ -187,35 +211,37 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun subscribeToPush(userId: String) {
-            // LÓGICA DE INSCRIÇÃO REAL NO FIREBASE
             FirebaseMessaging.getInstance().subscribeToTopic("all_users")
-            if (userId.isNotEmpty()) {
-                val topic = "user_$userId"
-                FirebaseMessaging.getInstance().subscribeToTopic(topic)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            // Opcional: Log de sucesso
-                        }
-                    }
+            if (userId.isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("user_$userId")
+        }
+        
+        @JavascriptInterface
+        fun syncTimer(state: String, startTs: Long, elapsed: Long) {
+            val intent = Intent(context, TimerService::class.java)
+            intent.action = TimerService.ACTION_SYNC
+            intent.putExtra("state", state)
+            intent.putExtra("start_ts", startTs)
+            intent.putExtra("elapsed", elapsed)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
             }
         }
     }
 
     private fun checkAndRequestPermissions() {
         if (!Settings.canDrawOverlays(this)) {
-            showExplanationDialog(
-                "Permissão de Sobreposição",
-                "Para mostrar o lucro flutuante, o app precisa 'Sobrepor outros apps'.",
-                { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
-            )
+            showExplanationDialog("Permissão de Sobreposição", "Necessário para exibir o lucro flutuante.") {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
             return
         }
         if (!isAccessibilityServiceEnabled()) {
-            showExplanationDialog(
-                "Ativar Leitura",
-                "Para ler o preço da corrida, ative o 'Motorista Pro Leitor' em Acessibilidade.",
-                { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-            )
+            showExplanationDialog("Ativar Leitura", "Necessário para ler o preço da corrida.") {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
             return
         }
         startOcrService()
@@ -232,13 +258,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showExplanationDialog(title: String, message: String, positiveAction: () -> Unit) {
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(message)
+        AlertDialog.Builder(this).setTitle(title).setMessage(message)
             .setPositiveButton("Configurar") { _, _ -> positiveAction() }
-            .setNegativeButton("Cancelar", null)
-            .setCancelable(false)
-            .show()
+            .setNegativeButton("Cancelar", null).setCancelable(false).show()
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
@@ -251,9 +273,12 @@ class MainActivity : ComponentActivity() {
         return false
     }
     
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    override fun onDestroy() {
+        super.onDestroy()
+        try { unregisterReceiver(jsReceiver) } catch (e: Exception) {}
     }
+    
+    override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }
 
 ================================================================================
@@ -865,6 +890,175 @@ class OcrService : Service() {
             if (infoCardView != null) windowManager.removeView(infoCardView)
         } catch (e: Exception) {}
     }
+}
+
+================================================================================
+ARQUIVO: app/src/main/java/com/motoristapro/android/TimerService.kt
+================================================================================
+package com.motoristapro.android
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import androidx.core.app.NotificationCompat
+
+class TimerService : Service() {
+
+    private val CHANNEL_ID = "timer_channel"
+    private val NOTIF_ID = 777
+    private val handler = Handler(Looper.getMainLooper())
+    
+    private var startTime = 0L
+    private var accumulatedTime = 0L
+    private var isRunning = false
+    
+    private lateinit var notificationManager: NotificationManager
+
+    companion object {
+        const val ACTION_START = "ACTION_START"
+        const val ACTION_PAUSE = "ACTION_PAUSE"
+        const val ACTION_RESUME = "ACTION_RESUME"
+        const val ACTION_STOP = "ACTION_STOP"
+        const val ACTION_SYNC = "ACTION_SYNC" 
+    }
+
+    private val updateRunnable = object : Runnable {
+        override fun run() {
+            if (isRunning) {
+                updateNotification()
+                handler.postDelayed(this, 1000)
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        createChannel()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action
+        
+        when (action) {
+            ACTION_SYNC -> {
+                val state = intent.getStringExtra("state") ?: "stopped"
+                val startTs = intent.getLongExtra("start_ts", 0L)
+                val elapsed = intent.getLongExtra("elapsed", 0L)
+                
+                if (state == "running") {
+                    startTime = startTs
+                    accumulatedTime = 0 
+                    if (!isRunning) {
+                        isRunning = true
+                        startForeground(NOTIF_ID, buildNotification())
+                        handler.post(updateRunnable)
+                    }
+                } else if (state == "paused") {
+                    isRunning = false
+                    accumulatedTime = elapsed
+                    startTime = 0
+                    updateNotification()
+                } else {
+                    stopSelf()
+                }
+            }
+            ACTION_PAUSE -> {
+                isRunning = false
+                accumulatedTime = System.currentTimeMillis() - startTime
+                updateNotification()
+                sendToJs("window.toggleTimer();") 
+            }
+            ACTION_RESUME -> {
+                startTime = System.currentTimeMillis() - accumulatedTime
+                isRunning = true
+                handler.post(updateRunnable)
+                sendToJs("window.toggleTimer();")
+            }
+            ACTION_STOP -> {
+                val totalMs = if (isRunning) System.currentTimeMillis() - startTime else accumulatedTime
+                val totalSec = totalMs / 1000
+                val h = totalSec / 3600
+                val m = (totalSec % 3600) / 60
+                
+                stopSelf()
+                
+                val activityIntent = Intent(this, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    // CORREÇÃO AQUI: Usar setAction para evitar conflito com a variável local 'action'
+                    setAction("OPEN_ADD_SCREEN")
+                    putExtra("h_val", h.toInt())
+                    putExtra("m_val", m.toInt())
+                }
+                startActivity(activityIntent)
+            }
+        }
+        return START_NOT_STICKY
+    }
+
+    private fun sendToJs(js: String) {
+        val intent = Intent("wwebview.js_command")
+        intent.putExtra("js", js)
+        sendBroadcast(intent)
+    }
+
+    private fun updateNotification() {
+        notificationManager.notify(NOTIF_ID, buildNotification())
+    }
+
+    private fun buildNotification(): android.app.Notification {
+        val ms = if (isRunning) System.currentTimeMillis() - startTime else accumulatedTime
+        val s = ms / 1000
+        val h = s / 3600
+        val m = (s % 3600) / 60
+        val sec = s % 60
+        val timeStr = String.format("%02d:%02d:%02d", h, m, sec)
+
+        val openIntent = Intent(this, MainActivity::class.java)
+        val pendingOpen = PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Cronômetro Ativo")
+            .setContentText(timeStr)
+            .setSmallIcon(android.R.drawable.ic_menu_recent_history)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pendingOpen)
+            .setOngoing(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+        if (isRunning) {
+            val pauseIntent = Intent(this, TimerService::class.java).apply { setAction(ACTION_PAUSE) }
+            val pPause = PendingIntent.getService(this, 1, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
+            builder.addAction(android.R.drawable.ic_media_pause, "Pausar", pPause)
+        } else {
+            val resumeIntent = Intent(this, TimerService::class.java).apply { setAction(ACTION_RESUME) }
+            val pResume = PendingIntent.getService(this, 2, resumeIntent, PendingIntent.FLAG_IMMUTABLE)
+            builder.addAction(android.R.drawable.ic_media_play, "Retomar", pResume)
+        }
+
+        val stopIntent = Intent(this, TimerService::class.java).apply { setAction(ACTION_STOP) }
+        val pStop = PendingIntent.getService(this, 3, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+        builder.addAction(android.R.drawable.ic_delete, "Parar", pStop)
+
+        return builder.build()
+    }
+
+    private fun createChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID, "Cronômetro", NotificationManager.IMPORTANCE_LOW)
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onDestroy() { handler.removeCallbacks(updateRunnable); super.onDestroy() }
 }
 
 ================================================================================
