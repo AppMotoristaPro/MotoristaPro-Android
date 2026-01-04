@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl("https://motorista-pro-app.onrender.com")
+                webView.loadUrl("https://motorista-pro-app.onrender.com")
     }
 
     override fun onBackPressed() {
