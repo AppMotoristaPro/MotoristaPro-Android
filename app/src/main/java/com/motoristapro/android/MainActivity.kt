@@ -4,8 +4,10 @@ import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AlertDialog
 import android.app.Dialog
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -28,6 +30,15 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private val NOTIFICATION_PERMISSION_CODE = 101
+    
+    private val jsReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val js = intent?.getStringExtra("js")
+            if (js != null) {
+                webView.evaluateJavascript(js, null)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,22 +47,37 @@ class MainActivity : ComponentActivity() {
         webView = findViewById(R.id.webView)
         setupWebView(webView)
         
-        // 1. Carrega o Site
-        webView.loadUrl("https://motorista-pro-app.onrender.com")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            registerReceiver(jsReceiver, IntentFilter("wwebview.js_command"), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(jsReceiver, IntentFilter("wwebview.js_command"))
+        }
 
-        // 2. Pede Permissão de Notificação
+        handleIntent(intent)
         askNotificationPermission()
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == "OPEN_ADD_SCREEN") {
+            val h = intent.getIntExtra("h_val", 0)
+            val m = intent.getIntExtra("m_val", 0)
+            webView.loadUrl("https://motorista-pro-app.onrender.com/adicionar?tempo_cronometro=$h:$m")
+        } else if (webView.url == null) {
+            webView.loadUrl("https://motorista-pro-app.onrender.com")
+        }
     }
 
     private fun setupWebView(view: WebView) {
         val settings = view.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        
-        // User Agent para Google Login
         val defaultUA = settings.userAgentString
         settings.userAgentString = defaultUA.replace("; wv", "") + " (MotoristaPro)"
-        
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = true
         
@@ -60,8 +86,6 @@ class MainActivity : ComponentActivity() {
         }
 
         view.webViewClient = WebViewClient()
-        
-        // Gerenciamento de Popups (Google Login)
         view.webChromeClient = object : WebChromeClient() {
             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
                 val newWebView = WebView(this@MainActivity)
@@ -97,35 +121,37 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun subscribeToPush(userId: String) {
-            // LÓGICA DE INSCRIÇÃO REAL NO FIREBASE
             FirebaseMessaging.getInstance().subscribeToTopic("all_users")
-            if (userId.isNotEmpty()) {
-                val topic = "user_$userId"
-                FirebaseMessaging.getInstance().subscribeToTopic(topic)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            // Opcional: Log de sucesso
-                        }
-                    }
+            if (userId.isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("user_$userId")
+        }
+        
+        @JavascriptInterface
+        fun syncTimer(state: String, startTs: Long, elapsed: Long) {
+            val intent = Intent(context, TimerService::class.java)
+            intent.action = TimerService.ACTION_SYNC
+            intent.putExtra("state", state)
+            intent.putExtra("start_ts", startTs)
+            intent.putExtra("elapsed", elapsed)
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
             }
         }
     }
 
     private fun checkAndRequestPermissions() {
         if (!Settings.canDrawOverlays(this)) {
-            showExplanationDialog(
-                "Permissão de Sobreposição",
-                "Para mostrar o lucro flutuante, o app precisa 'Sobrepor outros apps'.",
-                { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
-            )
+            showExplanationDialog("Permissão de Sobreposição", "Necessário para exibir o lucro flutuante.") {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            }
             return
         }
         if (!isAccessibilityServiceEnabled()) {
-            showExplanationDialog(
-                "Ativar Leitura",
-                "Para ler o preço da corrida, ative o 'Motorista Pro Leitor' em Acessibilidade.",
-                { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-            )
+            showExplanationDialog("Ativar Leitura", "Necessário para ler o preço da corrida.") {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
             return
         }
         startOcrService()
@@ -142,13 +168,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showExplanationDialog(title: String, message: String, positiveAction: () -> Unit) {
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(message)
+        AlertDialog.Builder(this).setTitle(title).setMessage(message)
             .setPositiveButton("Configurar") { _, _ -> positiveAction() }
-            .setNegativeButton("Cancelar", null)
-            .setCancelable(false)
-            .show()
+            .setNegativeButton("Cancelar", null).setCancelable(false).show()
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {
@@ -161,7 +183,10 @@ class MainActivity : ComponentActivity() {
         return false
     }
     
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+    override fun onDestroy() {
+        super.onDestroy()
+        try { unregisterReceiver(jsReceiver) } catch (e: Exception) {}
     }
+    
+    override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }
