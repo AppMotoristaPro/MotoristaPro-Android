@@ -12,6 +12,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Message
 import android.provider.Settings
+import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -22,7 +24,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
 
@@ -39,7 +40,7 @@ class MainActivity : ComponentActivity() {
         // 1. Carrega o Site
         webView.loadUrl("https://motorista-pro-app.onrender.com")
 
-        // 2. Pede Permissão de Notificação
+        // 2. Pede Permissão de Notificação (Android 13+)
         askNotificationPermission()
     }
 
@@ -48,33 +49,47 @@ class MainActivity : ComponentActivity() {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         
-        // User Agent para Google Login
+        // --- TRUQUE PARA O GOOGLE LOGIN (Simular Chrome) ---
+        // Removemos o identificador "wv" que denuncia ser um WebView
         val defaultUA = settings.userAgentString
         settings.userAgentString = defaultUA.replace("; wv", "") + " (MotoristaPro)"
         
+        // Permitir multiplas janelas (necessário para o popup do Google)
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = true
         
+        // Ponte JavaScript -> Android (Apenas na WebView principal)
         if (view == webView) {
             view.addJavascriptInterface(WebAppInterface(this), "MotoristaProAndroid")
         }
 
         view.webViewClient = WebViewClient()
         
-        // Gerenciamento de Popups (Google Login)
+        // Configura o WebChromeClient para interceptar popups (O "Dialog")
         view.webChromeClient = object : WebChromeClient() {
             override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
+                // Cria um novo WebView para o Popup do Google
                 val newWebView = WebView(this@MainActivity)
-                setupWebView(newWebView)
+                setupWebView(newWebView) // Aplica as mesmas configurações (User Agent, etc)
+                
+                // Cria um Dialog Nativo em tela cheia para exibir esse WebView
                 val dialog = Dialog(this@MainActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
                 dialog.setContentView(newWebView)
+                dialog.window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
                 dialog.show()
+
+                // Quando o popup fechar (ex: fim do login), fecha o dialog
                 newWebView.webChromeClient = object : WebChromeClient() {
-                    override fun onCloseWindow(window: WebView?) { dialog.dismiss() }
+                    override fun onCloseWindow(window: WebView?) {
+                        dialog.dismiss()
+                    }
                 }
+                
+                // Redireciona o transporte da janela para o novo WebView
                 val transport = resultMsg?.obj as WebView.WebViewTransport
                 transport.webView = newWebView
                 resultMsg.sendToTarget()
+                
                 return true
             }
         }
@@ -88,29 +103,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // --- PONTE JAVASCRIPT ---
     inner class WebAppInterface(private val context: Context) {
-        @JavascriptInterface
-        fun startRobot() { runOnUiThread { checkAndRequestPermissions() } }
 
         @JavascriptInterface
-        fun requestPermission() { runOnUiThread { checkAndRequestPermissions() } }
+        fun startRobot() {
+            runOnUiThread { checkAndRequestPermissions() }
+        }
+
+        @JavascriptInterface
+        fun requestPermission() {
+            runOnUiThread { checkAndRequestPermissions() }
+        }
 
         @JavascriptInterface
         fun subscribeToPush(userId: String) {
-            // LÓGICA DE INSCRIÇÃO REAL NO FIREBASE
-            FirebaseMessaging.getInstance().subscribeToTopic("all_users")
-            if (userId.isNotEmpty()) {
-                val topic = "user_$userId"
-                FirebaseMessaging.getInstance().subscribeToTopic(topic)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            // Opcional: Log de sucesso
-                        }
-                    }
-            }
+            // Placeholder para lógica de push
         }
     }
 
+    // --- LÓGICA DE PERMISSÕES ---
     private fun checkAndRequestPermissions() {
         if (!Settings.canDrawOverlays(this)) {
             showExplanationDialog(
@@ -120,6 +132,7 @@ class MainActivity : ComponentActivity() {
             )
             return
         }
+
         if (!isAccessibilityServiceEnabled()) {
             showExplanationDialog(
                 "Ativar Leitura",
@@ -128,6 +141,7 @@ class MainActivity : ComponentActivity() {
             )
             return
         }
+
         startOcrService()
     }
 
