@@ -95,7 +95,8 @@ class TimerService : Service() {
                 
                 val activityIntent = Intent(this, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    action = "OPEN_ADD_SCREEN"
+                    // CORREÇÃO AQUI: Usar setAction para evitar conflito com a variável local 'action'
+                    setAction("OPEN_ADD_SCREEN")
                     putExtra("h_val", h.toInt())
                     putExtra("m_val", m.toInt())
                 }
@@ -136,16 +137,16 @@ class TimerService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (isRunning) {
-            val pauseIntent = Intent(this, TimerService::class.java).apply { action = ACTION_PAUSE }
+            val pauseIntent = Intent(this, TimerService::class.java).apply { setAction(ACTION_PAUSE) }
             val pPause = PendingIntent.getService(this, 1, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
             builder.addAction(android.R.drawable.ic_media_pause, "Pausar", pPause)
         } else {
-            val resumeIntent = Intent(this, TimerService::class.java).apply { action = ACTION_RESUME }
+            val resumeIntent = Intent(this, TimerService::class.java).apply { setAction(ACTION_RESUME) }
             val pResume = PendingIntent.getService(this, 2, resumeIntent, PendingIntent.FLAG_IMMUTABLE)
             builder.addAction(android.R.drawable.ic_media_play, "Retomar", pResume)
         }
 
-        val stopIntent = Intent(this, TimerService::class.java).apply { action = ACTION_STOP }
+        val stopIntent = Intent(this, TimerService::class.java).apply { setAction(ACTION_STOP) }
         val pStop = PendingIntent.getService(this, 3, stopIntent, PendingIntent.FLAG_IMMUTABLE)
         builder.addAction(android.R.drawable.ic_delete, "Parar", pStop)
 
