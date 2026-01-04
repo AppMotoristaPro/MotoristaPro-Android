@@ -27,8 +27,8 @@ class MainActivity : ComponentActivity() {
         webView = findViewById(R.id.webView)
         setupWebView()
         
-        // URL DE PRODUÇÃO CORRIGIDA
-        webView.loadUrl("https://motorista-pro-app.onrender.com") 
+        // Carrega a URL do seu Web App (Ajuste para produção se necessário)
+        webView.loadUrl("https://motoristaproteste.onrender.com/monitoramento") 
     }
 
     private fun setupWebView() {
@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun subscribeToPush(userId: String) {
-            // Lógica de Push (mantida placeholder para este update)
+            // Lógica de Push (mantida simples para este exemplo)
             // FirebaseMessaging.getInstance().subscribeToTopic("user_$userId")
         }
     }
@@ -65,10 +65,10 @@ class MainActivity : ComponentActivity() {
     // --- LÓGICA DE PERMISSÕES E FLOW ---
     
     private fun checkAndRequestPermissions() {
-        // 1. Verificar Sobreposição (Overlay) - Para desenhar a bolha flutuante
+        // 1. Verificar Sobreposição (Overlay)
         if (!Settings.canDrawOverlays(this)) {
             showExplanationDialog(
-                title = "Permissão de Sobreposição",
+                title = "Permissão Necessária",
                 message = "Para mostrar o lucro flutuante em cima do Uber e 99, o app precisa de permissão para 'Sobrepor outros apps'.",
                 positiveAction = {
                     val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // 2. Verificar Acessibilidade (Leitura de Tela) - Para ler o preço
+        // 2. Verificar Acessibilidade (Leitura de Tela)
         if (!isAccessibilityServiceEnabled()) {
             showExplanationDialog(
                 title = "Ativar Leitura Automática",
@@ -99,7 +99,6 @@ class MainActivity : ComponentActivity() {
         try {
             val intent = Intent(this, OcrService::class.java)
             startService(intent)
-            // Feedback visual para o usuário
             Toast.makeText(this, "🤖 Robô Iniciado! Abra o Uber/99.", Toast.LENGTH_LONG).show()
             
             // Opcional: Minimizar o app para o usuário ir pro Uber
@@ -133,7 +132,7 @@ class MainActivity : ComponentActivity() {
         return false
     }
     
-    // Tratamento do botão voltar no WebView para não fechar o app direto
+    // Tratamento do botão voltar no WebView
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
