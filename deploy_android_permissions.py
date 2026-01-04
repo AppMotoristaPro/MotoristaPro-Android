@@ -1,3 +1,20 @@
+import os
+import sys
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+
+# --- CONFIGURAÇÃO ---
+BACKUP_ROOT = Path("backup_automatico")
+TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+COMMIT_MSG = "Feat: Fluxo de permissoes explicativas (Overlay e Acessibilidade)"
+
+# --- CONTEÚDO DO NOVO MAIN ACTIVITY (KOTLIN) ---
+# Caminho baseado na estrutura padrão Android
+MAIN_ACTIVITY_PATH = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+
+NEW_MAIN_ACTIVITY = """
 package com.motoristapro.android
 
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -141,3 +158,58 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+"""
+
+FILES_TO_UPDATE = {
+    MAIN_ACTIVITY_PATH: NEW_MAIN_ACTIVITY,
+}
+
+def run_command(command):
+    try:
+        subprocess.run(command, check=True, shell=True)
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Erro ao executar: {command}")
+        sys.exit(1)
+
+def main():
+    print(f"🚀 Iniciando atualização Android (Permissões Explicativas)... [{TIMESTAMP}]")
+    
+    # 1. Backup
+    current_backup_dir = BACKUP_ROOT / TIMESTAMP
+    if not current_backup_dir.exists():
+        current_backup_dir.mkdir(parents=True, exist_ok=True)
+
+    for file_path_str, new_content in FILES_TO_UPDATE.items():
+        file_path = Path(file_path_str)
+        
+        if file_path.exists():
+            dest_backup = current_backup_dir / file_path
+            dest_backup.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(file_path, dest_backup)
+            print(f"📦 Backup salvo: {dest_backup}")
+        
+        # 2. Escrita
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(new_content.strip())
+        print(f"✅ Arquivo atualizado: {file_path}")
+
+    # 3. Git
+    print("\n☁️ Sincronizando com Git...")
+    try:
+        run_command("git add .")
+        subprocess.run(f'git commit -m "{COMMIT_MSG}"', shell=True)
+        run_command("git push")
+        print("✅ Git Push realizado com sucesso!")
+    except Exception as e:
+        print(f"⚠️ Atenção: {e}")
+
+    # 4. Auto-destruição
+    try:
+        os.remove(__file__)
+        print("✅ Script de atualização excluído.")
+    except: pass
+
+if __name__ == "__main__":
+    main()
+
