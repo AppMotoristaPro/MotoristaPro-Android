@@ -8,23 +8,26 @@ from pathlib import Path
 # --- CONFIGURAÇÃO ---
 BACKUP_ROOT = Path("backup_automatico")
 TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
-COMMIT_MSG = "Feat: Permissoes Android explicativas + Fix URL Producao"
+COMMIT_MSG = "Fix: Restaurar startRobot e adicionar Permissao Notificacao"
 
-# --- URL CORRETA ---
-# Aponta para a home. Se o usuário não estiver logado, o Flask redireciona para o login.
+# --- URL DO SITE ---
 TARGET_URL = "https://motorista-pro-app.onrender.com"
 
-# --- CONTEÚDO DO ARQUIVO ---
+# --- ARQUIVO ALVO ---
 MAIN_ACTIVITY_PATH = "app/src/main/java/com/motoristapro/android/MainActivity.kt"
 
+# --- NOVO CÓDIGO (Completo e Corrigido) ---
 NEW_MAIN_ACTIVITY = f"""
 package com.motoristapro.android
 
+import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -35,10 +38,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {{
 
     private lateinit var webView: WebView
+    private val NOTIFICATION_PERMISSION_CODE = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {{
         super.onCreate(savedInstanceState)
@@ -47,8 +53,11 @@ class MainActivity : ComponentActivity() {{
         webView = findViewById(R.id.webView)
         setupWebView()
         
-        // URL DE PRODUÇÃO CORRIGIDA
-        webView.loadUrl("{TARGET_URL}") 
+        // 1. Carrega o Site
+        webView.loadUrl("{TARGET_URL}")
+
+        // 2. Pede Permissão de Notificação (Android 13+)
+        askNotificationPermission()
     }}
 
     private fun setupWebView() {{
@@ -64,12 +73,29 @@ class MainActivity : ComponentActivity() {{
         webView.webChromeClient = WebChromeClient()
     }}
 
+    private fun askNotificationPermission() {{
+        // Apenas necessário para Android 13 (API 33) ou superior
+        if (Build.VERSION.SDK_INT >= 33) {{
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {{
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_CODE)
+            }}
+        }}
+    }}
+
     // --- PONTE JAVASCRIPT ---
     inner class WebAppInterface(private val context: Context) {{
 
+        // CORREÇÃO: Restauramos o nome 'startRobot' que o site chama
+        @JavascriptInterface
+        fun startRobot() {{
+            runOnUiThread {{
+                checkAndRequestPermissions()
+            }}
+        }}
+
+        // Mantemos este também por compatibilidade
         @JavascriptInterface
         fun requestPermission() {{
-            // Executa na Thread principal para poder mostrar Dialogs/UI
             runOnUiThread {{
                 checkAndRequestPermissions()
             }}
@@ -77,7 +103,7 @@ class MainActivity : ComponentActivity() {{
 
         @JavascriptInterface
         fun subscribeToPush(userId: String) {{
-            // Lógica de Push (mantida placeholder para este update)
+            // Aqui você pode adicionar a lógica do Firebase Messaging se necessário
             // FirebaseMessaging.getInstance().subscribeToTopic("user_$userId")
         }}
     }}
@@ -118,12 +144,15 @@ class MainActivity : ComponentActivity() {{
     private fun startOcrService() {{
         try {{
             val intent = Intent(this, OcrService::class.java)
-            startService(intent)
-            // Feedback visual para o usuário
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {{
+                startForegroundService(intent)
+            }} else {{
+                startService(intent)
+            }}
+            
+            // Feedback visual
             Toast.makeText(this, "🤖 Robô Iniciado! Abra o Uber/99.", Toast.LENGTH_LONG).show()
             
-            // Opcional: Minimizar o app para o usuário ir pro Uber
-            // moveTaskToBack(true)
         }} catch (e: Exception) {{
             Toast.makeText(this, "Erro ao iniciar: ${{e.message}}", Toast.LENGTH_SHORT).show()
         }}
@@ -153,7 +182,6 @@ class MainActivity : ComponentActivity() {{
         return false
     }}
     
-    // Tratamento do botão voltar no WebView para não fechar o app direto
     override fun onBackPressed() {{
         if (webView.canGoBack()) {{
             webView.goBack()
@@ -176,7 +204,7 @@ def run_command(command):
         sys.exit(1)
 
 def main():
-    print(f"🚀 Iniciando atualização Android (Permissões + URL Fix)... [{{TIMESTAMP}}]")
+    print(f"🚀 Iniciando correção Android... [{{TIMESTAMP}}]")
     
     # 1. Backup
     current_backup_dir = BACKUP_ROOT / TIMESTAMP
@@ -186,14 +214,13 @@ def main():
     for file_path_str, new_content in FILES_TO_UPDATE.items():
         file_path = Path(file_path_str)
         
-        # A) Backup
         if file_path.exists():
             dest_backup = current_backup_dir / file_path
             dest_backup.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(file_path, dest_backup)
             print(f"📦 Backup salvo: {{dest_backup}}")
         
-        # B) Escrita
+        # 2. Escrita
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(new_content.strip())
@@ -210,7 +237,6 @@ def main():
         print(f"⚠️ Atenção: {{e}}")
 
     # 4. Auto-destruição
-    print("\\n🗑️ Limpando script...")
     try:
         os.remove(__file__)
         print("✅ Script excluído.")

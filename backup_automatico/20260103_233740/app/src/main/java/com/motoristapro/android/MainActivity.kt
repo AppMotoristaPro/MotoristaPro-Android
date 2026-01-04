@@ -1,13 +1,10 @@
 package com.motoristapro.android
 
-import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -18,13 +15,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
-    private val NOTIFICATION_PERMISSION_CODE = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,11 +27,8 @@ class MainActivity : ComponentActivity() {
         webView = findViewById(R.id.webView)
         setupWebView()
         
-        // 1. Carrega o Site
-        webView.loadUrl("https://motorista-pro-app.onrender.com")
-
-        // 2. Pede Permissão de Notificação (Android 13+)
-        askNotificationPermission()
+        // URL DE PRODUÇÃO CORRIGIDA
+        webView.loadUrl("https://motorista-pro-app.onrender.com") 
     }
 
     private fun setupWebView() {
@@ -53,29 +44,12 @@ class MainActivity : ComponentActivity() {
         webView.webChromeClient = WebChromeClient()
     }
 
-    private fun askNotificationPermission() {
-        // Apenas necessário para Android 13 (API 33) ou superior
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_CODE)
-            }
-        }
-    }
-
     // --- PONTE JAVASCRIPT ---
     inner class WebAppInterface(private val context: Context) {
 
-        // CORREÇÃO: Restauramos o nome 'startRobot' que o site chama
-        @JavascriptInterface
-        fun startRobot() {
-            runOnUiThread {
-                checkAndRequestPermissions()
-            }
-        }
-
-        // Mantemos este também por compatibilidade
         @JavascriptInterface
         fun requestPermission() {
+            // Executa na Thread principal para poder mostrar Dialogs/UI
             runOnUiThread {
                 checkAndRequestPermissions()
             }
@@ -83,7 +57,7 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun subscribeToPush(userId: String) {
-            // Aqui você pode adicionar a lógica do Firebase Messaging se necessário
+            // Lógica de Push (mantida placeholder para este update)
             // FirebaseMessaging.getInstance().subscribeToTopic("user_$userId")
         }
     }
@@ -124,15 +98,12 @@ class MainActivity : ComponentActivity() {
     private fun startOcrService() {
         try {
             val intent = Intent(this, OcrService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
-            
-            // Feedback visual
+            startService(intent)
+            // Feedback visual para o usuário
             Toast.makeText(this, "🤖 Robô Iniciado! Abra o Uber/99.", Toast.LENGTH_LONG).show()
             
+            // Opcional: Minimizar o app para o usuário ir pro Uber
+            // moveTaskToBack(true)
         } catch (e: Exception) {
             Toast.makeText(this, "Erro ao iniciar: ${e.message}", Toast.LENGTH_SHORT).show()
         }
@@ -162,6 +133,7 @@ class MainActivity : ComponentActivity() {
         return false
     }
     
+    // Tratamento do botão voltar no WebView para não fechar o app direto
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
