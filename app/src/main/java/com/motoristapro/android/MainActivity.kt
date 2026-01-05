@@ -2,7 +2,6 @@ package com.motoristapro.android
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.app.AlertDialog
 import android.app.Dialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -21,7 +20,6 @@ import android.view.Window
 import android.view.accessibility.AccessibilityManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -73,7 +71,8 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == "OPEN_ADD_SCREEN") {
             val h = intent.getIntExtra("h_val", 0)
             val m = intent.getIntExtra("m_val", 0)
-            webView.loadUrl("https://motorista-pro-app.onrender.com/adicionar?tempo_cronometro=\$h:\$m")
+            // Correção da string com escape correto
+            webView.loadUrl("https://motorista-pro-app.onrender.com/adicionar?tempo_cronometro=$h:$m")
         } else if (webView.url == null) {
             webView.loadUrl("https://motorista-pro-app.onrender.com")
         }
@@ -129,7 +128,7 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface
         fun subscribeToPush(userId: String) {
             FirebaseMessaging.getInstance().subscribeToTopic("all_users")
-            if (userId.isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("user_\$userId")
+            if (userId.isNotEmpty()) FirebaseMessaging.getInstance().subscribeToTopic("user_$userId")
         }
 
         @JavascriptInterface
@@ -151,12 +150,14 @@ class MainActivity : ComponentActivity() {
         // 1. Sobreposição (Overlay)
         if (!Settings.canDrawOverlays(this)) {
             showProfessionalDialog(
-                title = "Ativar Janela Flutuante",
-                message = "Para mostrar o lucro em cima do app da Uber/99, precisamos da sua permissão para sobrepor outros apps.",
+                title = "Permissão de Sobreposição",
+                // TEXTO OTIMIZADO PARA GOOGLE PLAY: Explica O QUE e PARA QUE
+                message = "O Motorista Pro precisa exibir informações sobrepostas a outros aplicativos para mostrar o cálculo de lucro em tempo real enquanto você navega no app de viagens.",
                 iconRes = R.drawable.ic_permission_layers,
                 isAccessibility = false
             ) {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:\$packageName")))
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                startActivity(intent)
             }
             return
         }
@@ -164,8 +165,9 @@ class MainActivity : ComponentActivity() {
         // 2. Acessibilidade
         if (!isAccessibilityServiceEnabled()) {
             showProfessionalDialog(
-                title = "Ativar Leitura Inteligente",
-                message = "O Robô usa a Acessibilidade para ler SOMENTE o preço e a distância na tela da oferta.\n\n🔒 Seus dados bancários e senhas estão 100% seguros e nunca são lidos.",
+                title = "Serviço de Acessibilidade",
+                // TEXTO BLINDADO PARA GOOGLE PLAY (Prominent Disclosure)
+                message = "O Motorista Pro utiliza a API de Acessibilidade para ler o conteúdo da tela apenas quando os apps de viagem estão abertos. Isso é necessário para extrair automaticamente o preço e a distância da corrida e calcular o seu lucro líquido.\n\nNenhum outro dado pessoal ou sensível é coletado, armazenado ou compartilhado.",
                 iconRes = R.drawable.ic_permission_eye,
                 isAccessibility = true
             ) {
@@ -181,15 +183,11 @@ class MainActivity : ComponentActivity() {
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         
-        // Infla o layout customizado
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_permission_edu, null)
         dialog.setContentView(view)
-        
-        // Fundo transparente para respeitar os cantos arredondados
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.setCancelable(false)
 
-        // Configura textos e ícone
         val tvTitle = view.findViewById<TextView>(R.id.dialog_title)
         val tvMessage = view.findViewById<TextView>(R.id.dialog_message)
         val ivIcon = view.findViewById<ImageView>(R.id.dialog_icon)
@@ -203,15 +201,13 @@ class MainActivity : ComponentActivity() {
         btnAllow.setOnClickListener {
             dialog.dismiss()
             if (isAccessibility) {
-                // Toast extra para guiar o usuário na tela de configurações do Android
-                Toast.makeText(this, "Procure por 'Motorista Pro' e ative a chave.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Toque em 'Aplicativos instalados' > 'Motorista Pro'", Toast.LENGTH_LONG).show()
             }
             positiveAction()
         }
 
         btnCancel.setOnClickListener {
             dialog.dismiss()
-            Toast.makeText(this, "A permissão é necessária para o Robô funcionar.", Toast.LENGTH_SHORT).show()
         }
 
         dialog.show()
@@ -223,7 +219,7 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
             Toast.makeText(this, "Robô Iniciado!", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "Erro: \${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Erro: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
