@@ -1,22 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="64dp"
+    android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:paddingStart="16dp"
-    android:paddingEnd="16dp">
+    android:paddingEnd="16dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
-    <!-- Ícone do App -->
-    <ImageView
-        android:id="@+id/notif_icon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:src="@mipmap/ic_launcher"
-        android:layout_marginEnd="16dp"
-        android:contentDescription="Icon" />
-
-    <!-- Área de Texto e Cronômetro -->
+    <!-- Cronômetro e Título à Esquerda -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -27,45 +20,50 @@
             android:id="@+id/notif_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Em Rota"
+            android:text="Cronômetro"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="#000000" />
+            android:textColor="@android:color/black" 
+            android:maxLines="1"
+            android:ellipsize="end"/>
 
         <Chronometer
             android:id="@+id/notif_chronometer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="12sp"
-            android:textColor="#666666" />
+            android:textSize="20sp"
+            android:fontFamily="sans-serif-medium"
+            android:textColor="#333333" />
     </LinearLayout>
 
-    <!-- Botões de Ação (Laterais) -->
+    <!-- Botões à Direita (Ícones Grandes) -->
     <LinearLayout
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:gravity="center_vertical">
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <!-- Botão Pause/Resume -->
         <ImageButton
             android:id="@+id/btn_toggle"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_media_pause"
+            android:src="@drawable/ic_timer_pause"
             android:contentDescription="Pause/Resume"
-            android:scaleType="centerInside" />
+            android:scaleType="fitCenter" />
 
-        <!-- Botão Stop -->
+        <Space
+            android:layout_width="16dp"
+            android:layout_height="wrap_content" />
+
         <ImageButton
             android:id="@+id/btn_stop"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:src="@drawable/ic_timer_stop"
             android:contentDescription="Stop"
-            android:layout_marginStart="8dp"
-            android:scaleType="centerInside" />
+            android:scaleType="fitCenter" />
     </LinearLayout>
 
 </LinearLayout>
