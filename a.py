@@ -1,4 +1,106 @@
-package com.motoristapro.android
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime
+
+# --- CONFIGURAÇÃO ---
+PROJECT_NAME = "MotoristaPro-Android"
+HOME_DIR = os.path.expanduser("~")
+PROJECT_PATH = os.path.join(HOME_DIR, PROJECT_NAME)
+BACKUP_DIR = os.path.join(PROJECT_PATH, "backup_automatico")
+
+# Arquivos
+FILES = {
+    "ic_layers": "app/src/main/res/drawable/ic_permission_layers.xml",
+    "ic_eye": "app/src/main/res/drawable/ic_permission_eye.xml",
+    "layout_dialog": "app/src/main/res/layout/dialog_permission_edu.xml",
+    "main_activity": "app/src/main/java/com/motoristapro/android/MainActivity.kt"
+}
+
+# --- 1. ÍCONE SOBREPOSIÇÃO (Camadas) ---
+IC_LAYERS_CONTENT = """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#2563EB" android:pathData="M11.99,18.54l-7.37,-5.73L3,14.07l9,7 9,-7 -1.63,-1.27 -7.38,5.74zM12,16l7.36,-5.73L21,9l-9,-7 -9,7 1.63,1.27L12,16z"/>
+</vector>"""
+
+# --- 2. ÍCONE ACESSIBILIDADE (Olho/Scan) ---
+IC_EYE_CONTENT = """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#2563EB" android:pathData="M12,4.5C7,4.5 2.73,7.61 1,12c1.73,4.39 6,7.5 11,7.5s9.27,-3.11 11,-7.5c-1.73,-4.39 -6,-7.5 -11,-7.5zM12,17c-2.76,0 -5,-2.24 -5,-5s2.24,-5 5,-5 5,2.24 5,5 -2.24,5 -5,5zM12,9c-1.66,0 -3,1.34 -3,3s1.34,3 3,3 3,-1.34 3,-3 -1.34,-3 -3,-3z"/>
+</vector>"""
+
+# --- 3. LAYOUT DO DIÁLOGO PROFISSIONAL ---
+LAYOUT_DIALOG_CONTENT = """<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card_white"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/dialog_icon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_permission_layers"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_circle_btn"
+        android:padding="12dp"
+        android:backgroundTint="#F0F9FF"/>
+
+    <TextView
+        android:id="@+id/dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Permissão Necessária"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#0F172A"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"/>
+
+    <TextView
+        android:id="@+id/dialog_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Explicação detalhada aqui..."
+        android:textSize="14sp"
+        android:textColor="#64748B"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.3"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- Botão Principal -->
+    <Button
+        android:id="@+id/btn_allow"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="PERMITIR AGORA"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_btn_gradient"
+        android:elevation="4dp"/>
+
+    <!-- Botão Cancelar -->
+    <TextView
+        android:id="@+id/btn_cancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Agora não"
+        android:textSize="14sp"
+        android:textColor="#94A3B8"
+        android:gravity="center"
+        android:padding="12dp"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout>
+"""
+
+# --- 4. MAIN ACTIVITY ATUALIZADA (Lógica de Diálogo Customizado) ---
+MAIN_ACTIVITY_CONTENT = """package com.motoristapro.android
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -165,7 +267,7 @@ class MainActivity : ComponentActivity() {
         if (!isAccessibilityServiceEnabled()) {
             showProfessionalDialog(
                 title = "Ativar Leitura Inteligente",
-                message = "O Robô usa a Acessibilidade para ler SOMENTE o preço e a distância na tela da oferta.\n\n🔒 Seus dados bancários e senhas estão 100% seguros e nunca são lidos.",
+                message = "O Robô usa a Acessibilidade para ler SOMENTE o preço e a distância na tela da oferta.\\n\\n🔒 Seus dados bancários e senhas estão 100% seguros e nunca são lidos.",
                 iconRes = R.drawable.ic_permission_eye,
                 isAccessibility = true
             ) {
@@ -244,3 +346,40 @@ class MainActivity : ComponentActivity() {
 
     override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }
+"""
+
+def write_file(rel_path, content):
+    path = os.path.join(PROJECT_PATH, rel_path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"📝 Criado/Atualizado: {rel_path}")
+
+def main():
+    print(f"🚀 Melhorando UX de Permissões em: {PROJECT_NAME}")
+    if not os.path.exists(PROJECT_PATH):
+        print("❌ Projeto não encontrado."); return
+
+    # 1. BACKUP
+    if not os.path.exists(BACKUP_DIR): os.makedirs(BACKUP_DIR)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if os.path.exists(os.path.join(PROJECT_PATH, FILES["main_activity"])):
+        shutil.copy(os.path.join(PROJECT_PATH, FILES["main_activity"]), os.path.join(BACKUP_DIR, f"MainActivity_{timestamp}.kt"))
+
+    # 2. ESCREVER ARQUIVOS
+    write_file(FILES["ic_layers"], IC_LAYERS_CONTENT)
+    write_file(FILES["ic_eye"], IC_EYE_CONTENT)
+    write_file(FILES["layout_dialog"], LAYOUT_DIALOG_CONTENT)
+    write_file(FILES["main_activity"], MAIN_ACTIVITY_CONTENT)
+
+    # 3. GIT
+    os.system(f'cd {PROJECT_PATH} && git add . && git commit -m "Feat: Professional Permission Dialogs (Overlay & Accessibility)" && git push')
+
+    # 4. LIMPEZA
+    try: os.remove(sys.argv[0]) 
+    except: pass
+
+if __name__ == "__main__":
+    main()
+
+

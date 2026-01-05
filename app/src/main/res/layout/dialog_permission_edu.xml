@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card_white"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/dialog_icon"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_permission_layers"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_circle_btn"
+        android:padding="12dp"
+        android:backgroundTint="#F0F9FF"/>
+
+    <TextView
+        android:id="@+id/dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Permissão Necessária"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#0F172A"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"/>
+
+    <TextView
+        android:id="@+id/dialog_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Explicação detalhada aqui..."
+        android:textSize="14sp"
+        android:textColor="#64748B"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.3"
+        android:layout_marginBottom="24dp"/>
+
+    <!-- Botão Principal -->
+    <Button
+        android:id="@+id/btn_allow"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="PERMITIR AGORA"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_btn_gradient"
+        android:elevation="4dp"/>
+
+    <!-- Botão Cancelar -->
+    <TextView
+        android:id="@+id/btn_cancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Agora não"
+        android:textSize="14sp"
+        android:textColor="#94A3B8"
+        android:gravity="center"
+        android:padding="12dp"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout>
