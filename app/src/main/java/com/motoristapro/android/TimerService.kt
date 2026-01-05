@@ -9,8 +9,9 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
-import java.util.Locale
 
 class TimerService : Service() {
 
@@ -18,12 +19,11 @@ class TimerService : Service() {
         const val CHANNEL_ID = "TimerChannel"
         const val NOTIFICATION_ID = 1
         
-        // Ações internas para os botões da notificação
         const val ACTION_START = "ACTION_START"
         const val ACTION_PAUSE = "ACTION_PAUSE"
         const val ACTION_RESUME = "ACTION_RESUME"
         const val ACTION_STOP = "ACTION_STOP"
-        const val ACTION_SYNC = "ACTION_SYNC" // Sincronização vinda do WebApp
+        const val ACTION_SYNC = "ACTION_SYNC"
     }
 
     private var startTime: Long = 0L
@@ -40,13 +40,19 @@ class TimerService : Service() {
 
         when (action) {
             ACTION_SYNC -> handleSync(intent)
-            ACTION_START -> {
-                // Início limpo
-                startTimer(System.currentTimeMillis())
+            ACTION_START -> startTimer(System.currentTimeMillis())
+            ACTION_PAUSE -> {
+                pauseTimer()
+                sendJsCommand("if(window.toggleTimer) window.toggleTimer();") 
             }
-            ACTION_PAUSE -> pauseTimer()
-            ACTION_RESUME -> resumeTimer()
-            ACTION_STOP -> stopTimer()
+            ACTION_RESUME -> {
+                resumeTimer()
+                sendJsCommand("if(window.toggleTimer) window.toggleTimer();")
+            }
+            ACTION_STOP -> {
+                stopTimer()
+                sendJsCommand("if(window.stopTimer) window.stopTimer();")
+            }
         }
 
         return START_NOT_STICKY
@@ -54,20 +60,19 @@ class TimerService : Service() {
 
     private fun handleSync(intent: Intent) {
         val state = intent.getStringExtra("state") ?: "stopped"
-        // Tempos vindos do JS (WebView)
         val incomeStartTime = intent.getLongExtra("start_ts", 0L)
         val incomeElapsed = intent.getLongExtra("elapsed", 0L)
 
         if (state == "running") {
-            // Se o web diz que está rodando, usamos o start_ts dele como base
             val base = if (incomeStartTime > 0) incomeStartTime else System.currentTimeMillis()
-            // Se já estiver rodando, só atualizamos se a base for muito diferente (evita flickers)
             if (!isRunning || kotlin.math.abs(startTime - base) > 1000) {
                 startTimer(base)
             }
         } else if (state == "paused") {
             pausedTime = incomeElapsed
-            pauseTimer()
+            if (isRunning || pausedTime > 0) {
+               pauseTimer(forceUpdate = true)
+            }
         } else {
             stopTimer()
         }
@@ -79,48 +84,37 @@ class TimerService : Service() {
         updateNotification()
     }
 
-    private fun pauseTimer() {
+    private fun pauseTimer(forceUpdate: Boolean = false) {
         if (isRunning) {
-            // Calcula quanto tempo correu até agora para congelar o texto
             val now = System.currentTimeMillis()
             pausedTime = now - startTime
         }
         isRunning = false
         updateNotification()
-        
-        // Opcional: Enviar broadcast de volta para o WebView se precisar manter sincronia bidirecional
-        sendBroadcastToWeb("pause")
     }
 
     private fun resumeTimer() {
-        // Ao retomar, ajustamos o startTime para descontar o tempo que ficou pausado
-        // Fórmula: NovoBase = Agora - TempoQueJáTinhaCorrido
         val now = System.currentTimeMillis()
         startTime = now - pausedTime
         isRunning = true
         updateNotification()
-        
-        sendBroadcastToWeb("resume")
     }
 
     private fun stopTimer() {
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-        sendBroadcastToWeb("stop")
     }
 
-    private fun sendBroadcastToWeb(action: String) {
-        // Envia um broadcast que a MainActivity pode interceptar para injetar JS na WebView
-        val intent = Intent("com.motoristapro.TIMER_ACTION")
-        intent.putExtra("action", action)
+    // Envia comando JS para a MainActivity injetar na WebView
+    private fun sendJsCommand(js: String) {
+        val intent = Intent("wwebview.js_command")
+        intent.putExtra("js", js)
         sendBroadcast(intent)
     }
 
     private fun updateNotification() {
         val notification = buildNotification()
-        
-        // Compatibilidade Android 14 (Foreground Service Type)
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -129,81 +123,66 @@ class TimerService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        // Intent para abrir o App ao clicar na notificação
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        // Layout Customizado
+        val remoteViews = RemoteViews(packageName, R.layout.notification_timer)
+        
+        // Configura o Intent de clique na notificação (abrir app)
+        val openIntent = Intent(this, MainActivity::class.java)
+        openIntent.flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val pOpen = PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE)
+        
+        // Configura Botão Stop
+        val stopIntent = Intent(this, TimerService::class.java).apply { action = ACTION_STOP }
+        val pStop = PendingIntent.getService(this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+        remoteViews.setOnClickPendingIntent(R.id.btn_stop, pStop)
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(true) // Não toca som a cada atualização
-            .setOngoing(true) // Impede arrastar para fechar
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-
-        // --- LÓGICA DE ESTILO SAMSUNG ---
+        // Lógica de UI (Play/Pause)
         if (isRunning) {
-            builder.setContentTitle("Em Rota")
-            // A mágica: Deixa o sistema contar o tempo na barra
-            builder.setUsesChronometer(true)
-            builder.setWhen(startTime)
-            builder.setShowWhen(true)
+            remoteViews.setTextViewText(R.id.notif_title, "Em Rota")
+            remoteViews.setImageViewResource(R.id.btn_toggle, android.R.drawable.ic_media_pause)
             
-            // Botão PAUSAR
-            val pPause = PendingIntent.getService(
-                this, 1, 
-                Intent(this, TimerService::class.java).apply { action = ACTION_PAUSE }, 
-                PendingIntent.FLAG_IMMUTABLE
-            )
-            builder.addAction(android.R.drawable.ic_media_pause, "Pausar", pPause)
+            // Configura Pause
+            val pauseIntent = Intent(this, TimerService::class.java).apply { action = ACTION_PAUSE }
+            val pPause = PendingIntent.getService(this, 2, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
+            remoteViews.setOnClickPendingIntent(R.id.btn_toggle, pPause)
 
+            // Configura Cronômetro Rodando
+            // Chronometer base precisa ser setado relativo ao SystemClock.elapsedRealtime()
+            val elapsedRealtimeOffset = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+            remoteViews.setChronometer(R.id.notif_chronometer, startTime - elapsedRealtimeOffset, null, true)
+            
         } else {
-            builder.setContentTitle("Pausado")
-            builder.setUsesChronometer(false)
-            builder.setShowWhen(false)
+            remoteViews.setTextViewText(R.id.notif_title, "Pausado")
+            remoteViews.setImageViewResource(R.id.btn_toggle, android.R.drawable.ic_media_play)
             
-            // Mostra o tempo estático congelado
-            builder.setContentText(formatElapsedTime(pausedTime))
+            // Configura Resume
+            val resumeIntent = Intent(this, TimerService::class.java).apply { action = ACTION_RESUME }
+            val pResume = PendingIntent.getService(this, 3, resumeIntent, PendingIntent.FLAG_IMMUTABLE)
+            remoteViews.setOnClickPendingIntent(R.id.btn_toggle, pResume)
 
-            // Botão RETOMAR
-            val pResume = PendingIntent.getService(
-                this, 2, 
-                Intent(this, TimerService::class.java).apply { action = ACTION_RESUME }, 
-                PendingIntent.FLAG_IMMUTABLE
-            )
-            builder.addAction(android.R.drawable.ic_media_play, "Retomar", pResume)
+            // Configura Cronômetro Parado (Mostra tempo fixo)
+            // Truque: Setar base para (Agora - TempoPausado) e parar contagem mostra o tempo corrido
+            val elapsedRealtimeOffset = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+            val base = System.currentTimeMillis() - pausedTime - elapsedRealtimeOffset
+            remoteViews.setChronometer(R.id.notif_chronometer, base, null, false)
         }
 
-        // Botão PARAR (Sempre visível)
-        val pStop = PendingIntent.getService(
-            this, 3, 
-            Intent(this, TimerService::class.java).apply { action = ACTION_STOP }, 
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Parar", pStop)
-
-        return builder.build()
-    }
-
-    private fun formatElapsedTime(ms: Long): String {
-        val seconds = (ms / 1000) % 60
-        val minutes = (ms / (1000 * 60)) % 60
-        val hours = (ms / (1000 * 60 * 60))
-        return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle()) // Estilo nativo para custom views
+            .setCustomContentView(remoteViews)
+            .setContentIntent(pOpen)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Cronômetro de Rota",
-                NotificationManager.IMPORTANCE_LOW // Low para não fazer som/vibração intrusiva
-            )
-            serviceChannel.description = "Controle de tempo de rota na barra de status"
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
+            val channel = NotificationChannel(CHANNEL_ID, "Timer", NotificationManager.IMPORTANCE_LOW)
+            channel.setSound(null, null)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
