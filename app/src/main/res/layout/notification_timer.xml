@@ -22,7 +22,7 @@
             android:text="Cronômetro"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="@android:color/black" 
+            android:textColor="#000000"
             android:maxLines="1"
             android:ellipsize="end"/>
 
@@ -31,11 +31,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="22sp"
-            android:fontFamily="sans-serif-medium"
             android:textColor="#333333" />
     </LinearLayout>
 
-    <!-- Botões à Direita (ImageViews são mais estáveis que ImageButton em RemoteViews) -->
+    <!-- Botões à Direita -->
+    <!-- REMOVIDO: android:background="?android:attr/..." (Causava Crash) -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
@@ -50,8 +50,8 @@
             android:src="@drawable/ic_timer_pause"
             android:contentDescription="Pause/Resume"
             android:scaleType="centerInside"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:clickable="true" />
+            android:clickable="true"
+            android:padding="8dp" />
 
         <Space
             android:layout_width="12dp"
@@ -65,8 +65,8 @@
             android:src="@drawable/ic_timer_stop"
             android:contentDescription="Stop"
             android:scaleType="centerInside"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:clickable="true" />
+            android:clickable="true"
+            android:padding="8dp" />
     </LinearLayout>
 
 </LinearLayout>
