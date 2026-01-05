@@ -6,11 +6,31 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <!-- Permissões de Serviço (Android 14+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- 
+       CORREÇÃO DE CONFORMIDADE GOOGLE PLAY:
+       Removemos QUERY_ALL_PACKAGES.
+       Usamos <queries> para listar apenas os apps necessários.
+    -->
+    <queries>
+        <!-- Uber (Passageiro e Motorista) -->
+        <package android:name="com.ubercab" />
+        <package android:name="com.ubercab.driver" />
+        
+        <!-- 99 (Motorista e Passageiro) -->
+        <package android:name="com.taxis99" />
+        <package android:name="com.taxis99.driver" />
+        
+        <!-- Indrive (Opcional, mas recomendado para compatibilidade futura) -->
+        <package android:name="sinet.startup.inDriver" />
+    </queries>
 
     <application
         android:name=".MotoristaApp"
@@ -43,7 +63,6 @@
             android:exported="false" />
 
         <!-- 1. Serviço de Acessibilidade (WindowMonitor) -->
-        <!-- OBRIGATÓRIO: android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" -->
         <service
             android:name=".WindowMonitorService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
