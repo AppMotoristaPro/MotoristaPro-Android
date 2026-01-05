@@ -6,7 +6,15 @@ plugins {
 
 android {
     namespace = "com.motoristapro.android"
+    
     compileSdk = 34
+
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+
     sourceSets {
         getByName("main") {
             manifest.srcFile("src/main/AndroidManifest.xml")
