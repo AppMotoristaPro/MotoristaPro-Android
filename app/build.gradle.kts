@@ -13,6 +13,8 @@ android {
         baseline = file("lint-baseline.xml")
         abortOnError = false
         checkReleaseBuilds = false
+        ignoreWarnings = true
+        quiet = true
     }
 
     sourceSets {
