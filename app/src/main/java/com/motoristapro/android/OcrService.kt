@@ -130,17 +130,7 @@ class OcrService : Service() {
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun saveLog(msg: String) {
-        try {
-            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val file = File(dir, "motorista_debug.txt")
-            val timestamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-            val writer = FileWriter(file, true)
-            writer.append("[$timestamp] $msg\n")
-            writer.flush()
-            writer.close()
-        } catch (e: Exception) {}
-    }
+    private fun saveLog(msg: String) { android.util.Log.i("MotoristaPro_OCR", msg) }
 
     private fun startForegroundServiceCompat() {
         val channelId = "ocr_service_channel"
