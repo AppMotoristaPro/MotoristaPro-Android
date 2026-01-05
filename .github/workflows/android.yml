@@ -21,31 +21,17 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Restaurar Keystore
+    - name: Restaurar Keystore (Seguro)
       run: |
-        # Decodifica a chave a partir do segredo
-        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/motorista.jks
-        
-    - name: Verificar Keystore (Debug)
-      run: |
-        # Lista o arquivo para ver o tamanho
-        ls -l app/motorista.jks
-        
-        # Verifica se o arquivo tem tamanho maior que 0
-        if [ ! -s app/motorista.jks ]; then
-          echo "❌ ERRO CRÍTICO: O arquivo app/motorista.jks está vazio!"
-          echo "Isso significa que o Secret ANDROID_KEYSTORE_BASE64 não foi configurado corretamente no GitHub."
-          exit 1
-        else
-          echo "✅ Keystore restaurada com sucesso. Tamanho ok."
-        fi
+        # Usa printf para evitar corrupção de caracteres no base64
+        printf "%s" "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/motorista.jks
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.2'
 
-    - name: Build Release AAB (Lint Ignorado)
+    - name: Build Release AAB
       run: gradle bundleRelease --stacktrace
 
     - name: Upload AAB Artifact
