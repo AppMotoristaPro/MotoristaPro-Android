@@ -21,18 +21,34 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Restaurar Keystore (Seguro)
+    - name: Restaurar Keystore (Com Verificação)
       run: |
-        # Usa printf para evitar corrupção de caracteres no base64
+        # 1. Decodifica a chave
         printf "%s" "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/motorista.jks
+        
+        # 2. Verifica se o arquivo tem tamanho > 0
+        if [ ! -s app/motorista.jks ]; then
+          echo "❌ ERRO: O arquivo da chave está vazio (0 bytes). Verifique o Secret no GitHub."
+          exit 1
+        fi
+        
+        # 3. Tenta listar o conteúdo para garantir que a senha e o arquivo estão válidos
+        # Se este comando falhar, sabemos que a chave está corrompida.
+        keytool -list -v -keystore app/motorista.jks -storepass motorista123 -alias key0 || { echo "❌ ERRO: A chave está corrompida ou a senha está errada."; exit 1; }
+        
+        echo "✅ Keystore válida e senha correta."
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.2'
 
-    - name: Build Release AAB
-      run: gradle bundleRelease --stacktrace
+    - name: Build Release AAB (Modo Seguro)
+      # -Dorg.gradle.jvmargs: Força 4GB de RAM diretamente
+      # --no-parallel: Evita travamentos por falta de CPU/RAM
+      # --no-daemon: Evita processos zumbis
+      run: |
+        gradle bundleRelease           -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1g"           --no-parallel           --no-daemon           --stacktrace
 
     - name: Upload AAB Artifact
       uses: actions/upload-artifact@v4
