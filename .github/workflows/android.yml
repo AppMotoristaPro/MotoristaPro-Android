@@ -1,10 +1,10 @@
-name: Android Build
+name: Android Build Release (AAB)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -19,22 +19,23 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+        cache: gradle
 
-    # CORREÇÃO DE REDE:
-    # Usamos curl com 'retry' para tentar 5 vezes se o servidor falhar.
-    # Usamos o link direto para a versão 8.2 (mais leve e compatível).
-    - name: Install Gradle 8.2 (Robust)
+    - name: Restore Keystore
       run: |
-        curl -L --retry 5 --retry-delay 10 -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.2-bin.zip
-        sudo unzip -q -d /opt/gradle /tmp/gradle.zip
-        echo "GRADLE_HOME=/opt/gradle/gradle-8.2" >> $GITHUB_ENV
-        echo "/opt/gradle/gradle-8.2/bin" >> $GITHUB_PATH
+        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/motorista.jks
+      # Isso recria o arquivo motorista.jks temporariamente para o build funcionar
 
-    - name: Build with Gradle
-      run: gradle assembleDebug --no-daemon --stacktrace
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
-    - name: Upload APK
+    - name: Build Release AAB
+      run: ./gradlew bundleRelease --stacktrace
+      # bundleRelease gera o .aab (obrigatório para Play Store atual)
+      # assembleRelease gera o .apk (antigo)
+
+    - name: Upload AAB Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: app-release-bundle
+        path: app/build/outputs/bundle/release/app-release.aab
