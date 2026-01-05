@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.Message
 import android.provider.Settings
 import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.view.Window
 import android.view.accessibility.AccessibilityManager
 import android.webkit.JavascriptInterface
@@ -71,7 +72,6 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == "OPEN_ADD_SCREEN") {
             val h = intent.getIntExtra("h_val", 0)
             val m = intent.getIntExtra("m_val", 0)
-            // Correção da string com escape correto
             webView.loadUrl("https://motorista-pro-app.onrender.com/adicionar?tempo_cronometro=$h:$m")
         } else if (webView.url == null) {
             webView.loadUrl("https://motorista-pro-app.onrender.com")
@@ -147,11 +147,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        // 1. Sobreposição (Overlay)
         if (!Settings.canDrawOverlays(this)) {
             showProfessionalDialog(
                 title = "Permissão de Sobreposição",
-                // TEXTO OTIMIZADO PARA GOOGLE PLAY: Explica O QUE e PARA QUE
                 message = "O Motorista Pro precisa exibir informações sobrepostas a outros aplicativos para mostrar o cálculo de lucro em tempo real enquanto você navega no app de viagens.",
                 iconRes = R.drawable.ic_permission_layers,
                 isAccessibility = false
@@ -162,11 +160,9 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // 2. Acessibilidade
         if (!isAccessibilityServiceEnabled()) {
             showProfessionalDialog(
                 title = "Serviço de Acessibilidade",
-                // TEXTO BLINDADO PARA GOOGLE PLAY (Prominent Disclosure)
                 message = "O Motorista Pro utiliza a API de Acessibilidade para ler o conteúdo da tela apenas quando os apps de viagem estão abertos. Isso é necessário para extrair automaticamente o preço e a distância da corrida e calcular o seu lucro líquido.\n\nNenhum outro dado pessoal ou sensível é coletado, armazenado ou compartilhado.",
                 iconRes = R.drawable.ic_permission_eye,
                 isAccessibility = true
@@ -185,6 +181,7 @@ class MainActivity : ComponentActivity() {
         
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_permission_edu, null)
         dialog.setContentView(view)
+        
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.setCancelable(false)
 
@@ -211,6 +208,12 @@ class MainActivity : ComponentActivity() {
         }
 
         dialog.show()
+        
+        // CORREÇÃO CRÍTICA: Forçar largura do Dialog para 90% da tela
+        dialog.window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.90).toInt(),
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
     }
 
     private fun startOcrService() {
