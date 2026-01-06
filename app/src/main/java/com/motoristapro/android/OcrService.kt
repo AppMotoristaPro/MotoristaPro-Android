@@ -84,13 +84,20 @@ class OcrService : Service() {
     private lateinit var settingsParams: WindowManager.LayoutParams
     private lateinit var cardParams: WindowManager.LayoutParams
 
-    
+    // --- NOVO: CONTROLE DE DUPLICIDADE ---
+    // Armazena os dados da última leitura válida
+    data class RideData(val price: Double, val dist: Double, val time: Double)
+    private var lastRideData: RideData? = null
+    // -------------------------------------
+
     private val hideCardReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (infoCardView?.visibility == View.VISIBLE) {
                 infoCardView?.visibility = View.GONE
-                bubbleView?.visibility = View.GONE // Oculta tudo para o print ser limpo
+                bubbleView?.visibility = View.GONE 
             }
+            // Reseta a última leitura ao esconder, permitindo ler a mesma corrida se ela reaparecer depois de um tempo
+            lastRideData = null
         }
     }
     
@@ -118,19 +125,22 @@ class OcrService : Service() {
             registerReceiver(textReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(textReceiver, filter)
-        registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD"))
         }
+        registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD"))
+        
         try {
             startForegroundServiceCompat()
             createBubble()
             createMenu()
             createSettingsView()
             createInfoCard()
-            saveLog("--- ROBÔ V14 (ANTI-BORRÃO) INICIADO ---")
+            saveLog("--- ROBÔ V15 (ANTI-DUPLICIDADE) INICIADO ---")
         } catch (e: Exception) { e.printStackTrace() }
     }
 
-    private fun saveLog(msg: String) { android.util.Log.i("MotoristaPro_OCR", msg) }
+    private fun saveLog(msg: String) { 
+        try { android.util.Log.i("MotoristaPro_OCR", msg) } catch (e: Exception) {} 
+    }
 
     private fun startForegroundServiceCompat() {
         val channelId = "ocr_service_channel"
@@ -152,14 +162,9 @@ class OcrService : Service() {
     }
 
     private fun sanitizeOcrErrors(input: String): String {
-        // Correção Leetspeak básica
         var text = input.lowercase().replace("\n", " ").replace(",", ".")
-        
-        // 1. Corrige a palavra "minutos" borrada (ex: m1nut05)
         text = text.replace(Regex("m[1i]nut[o0]5?"), "min")
                    .replace(Regex("m[1i]n"), "min")
-                   
-        // 2. Corrige números apenas se tiver contexto
         if (text.contains("km") || text.contains("min") || text.contains("m ") || text.contains("h")) {
             text = text.replace("o", "0")
                        .replace("l", "1")
@@ -178,13 +183,9 @@ class OcrService : Service() {
             val blocks = JSONArray(jsonString)
             var bestPrice = 0.0
             var maxPriceFontSize = 0
-            
             var totalDist = 0.0
             var totalTime = 0.0
             
-            var distCount = 0
-            var timeCount = 0
-
             val detectedApp = if (pkgName.contains("taxis99") || pkgName.contains("didi") || pkgName.contains("99")) "99" else "UBER"
             val ignoreTopLimit = screenHeight * 0.10
 
@@ -200,43 +201,13 @@ class OcrService : Service() {
 
                 val cleanText = sanitizeOcrErrors(rawText)
 
-                // --- FIX: IGNORAR PROMOÇÕES UBER (EVITA LER 'GANHE R$ 60') ---
-                if (cleanText.contains("ganhe r$") || cleanText.contains("a mais por") || cleanText.contains("viagens e ganhe") || cleanText.contains("meta de ganhos")) {
-                    sbLog.append("      [IGNORADO] Texto de promoção detectado\n")
-                    continue
-                }
+                if (cleanText.contains("ganhe r$") || cleanText.contains("a mais por") || cleanText.contains("viagens e ganhe") || cleanText.contains("meta de ganhos")) continue
+                if (cleanText.contains("r$/km") || cleanText.contains("r$/h") || cleanText.contains("5h0wr00m") || cleanText.contains("showroom")) continue
+                if (cleanText.contains("ma15 de 30") || cleanText.contains("mais de 30") || cleanText.contains("ma1s de 30")) continue
+                if (cleanText.contains("mapa de chamada") || cleanText.contains("chamadas") || cleanText == "30 m") continue
                 
-
-                // --- FIX: IGNORAR AVISO 'MAIS DE 30 MIN' ---
-                
-                // --- FIX: EVITAR AUTO-LEITURA E SHOWROOM ---
-                if (cleanText.contains("r$/km") || cleanText.contains("r$/h") || cleanText.contains("5h0wr00m") || cleanText.contains("showroom")) {
-                    continue
-                }
-        
-                if (cleanText.contains("ma15 de 30") || cleanText.contains("mais de 30") || cleanText.contains("ma1s de 30")) {
-                    sbLog.append("      [IGNORADO] Aviso 'mais de 30 min' detectado\n")
-                    continue
-                }
-                
-                // --- FIX: IGNORAR DISTÂNCIA EM METROS COMO TEMPO (REFRAÇÃO) ---
-                if (cleanText.matches(Regex(".*\\d+\\s*m\\b.*")) && !cleanText.contains("min")) {
-                     // Se tem 'm' mas não tem 'min', é metro, não tempo (reforço de segurança)
-                }
-            
-
-                // --- FILTRO DE RUÍDO (BASEADO NOS LOGS) ---
-                if (cleanText.contains("mapa de chamada") || cleanText.contains("chamadas") || cleanText == "30 m") {
-                    continue
-                }
-                            Logger.log("OCR_LINE", "RAW: '$rawText' -> CLEAN: '$cleanText'")
-                
-                if (cleanText.any { it.isDigit() }) {
-                    sbLog.append("   RAW: '$rawText' -> CLEAN: '$cleanText'\n")
-                }
-
                 // A. PREÇO
-                val matPrice = Pattern.compile("(?:r\\$|rs)\\s*([0-9]+(?:\\.[0-9]{2})?)").matcher(cleanText)
+                val matPrice = Pattern.compile("(?:r\$|rs)\s*([0-9]+(?:\.[0-9]{2})?)").matcher(cleanText)
                 if (matPrice.find()) {
                     val v = matPrice.group(1)?.toDoubleOrNull() ?: 0.0
                     if (v > 4.5) {
@@ -248,76 +219,63 @@ class OcrService : Service() {
                     }
                 }
                 if (bestPrice == 0.0 && h > 80) {
-                     val matPrice2 = Pattern.compile("^([0-9]+(?:\\.[0-9]{2}))$").matcher(cleanText.trim())
+                     val matPrice2 = Pattern.compile("^([0-9]+(?:\.[0-9]{2}))$").matcher(cleanText.trim())
                      if (matPrice2.find()) {
                          val v = matPrice2.group(1)?.toDoubleOrNull() ?: 0.0
                          if (v > 5.0 && v < 500.0) { bestPrice = v; maxPriceFontSize = h }
                      }
                 }
 
-                // B. DISTÂNCIA (Parênteses ou Contexto de "de distancia")
-                // Uber usa "6 minutos (2.0 km) de distancia"
-                val matDist = Pattern.compile("\\(?([0-9]+(?:\\.[0-9]+)?)\\s*(km|m)\\)?").matcher(cleanText)
+                // B. DISTÂNCIA
+                val matDist = Pattern.compile("\\(?([0-9]+(?:\.[0-9]+)?)\s*(km|m)\\)?").matcher(cleanText)
                 while (matDist.find()) {
                     val valStr = matDist.group(1) ?: "0"
                     val unit = matDist.group(2) ?: "km"
                     var value = valStr.toDoubleOrNull() ?: 0.0
-                    
                     if (unit == "m") value /= 1000.0
-                    
-                    // Só aceita se fizer sentido (0.1 a 300km)
-                    if (value > 0.1 && value < 300.0) {
-                        totalDist += value
-                        distCount++
-                        sbLog.append("      FOUND DIST: $value km\n")
-                    }
+                    if (value > 0.1 && value < 300.0) { totalDist += value }
                 }
 
-                // C. TEMPO (REGEX ANTI-BORRÃO)
-                // Remove relógio 10:42
+                // C. TEMPO
                 var textForTime = cleanText.replace(Regex("\\d{1,2}:\\d{2}"), " ")
-                
-                // Horas: "1h", "1 h", "1hr"
-                val matHour = Pattern.compile("(\\d+)\\s*(?:h|hr|hrs|hora|horas)\\b")
+                val matHour = Pattern.compile("(\\d+)\s*(?:h|hr|hrs|hora|horas)\\b")
                 val mHour = matHour.matcher(textForTime)
                 while (mHour.find()) {
                     val hVal = mHour.group(1)?.toDoubleOrNull() ?: 0.0
-                    if (hVal > 0 && hVal < 24) { 
-                        totalTime += (hVal * 60)
-                        timeCount++
-                        sbLog.append("      FOUND HOUR: $hVal h\n")
-                    }
+                    if (hVal > 0 && hVal < 24) { totalTime += (hVal * 60) }
                 }
-
-                // Minutos: "min", "minutos" (E variações borradas que o sanitize já arrumou para 'min')
-                val matMin = Pattern.compile("(\\d+)\\s*(?:min|minutos|m1n|m1ns|mins)(?!in|etro|l|e|a|o)")
-                // O lookahead negativo (?!in|etro) impede que pegue "min" de "termina" ou "metro"
+                val matMin = Pattern.compile("(\\d+)\s*(?:min|minutos|m1n|m1ns|mins)(?!in|etro|l|e|a|o)")
                 val mMin = matMin.matcher(textForTime)
                 while (mMin.find()) {
                     val mVal = mMin.group(1)?.toDoubleOrNull() ?: 0.0
-                    if (mVal > 0 && mVal < 600) { 
-                        totalTime += mVal
-                        timeCount++
-                        sbLog.append("      FOUND MIN: $mVal min\n")
-                    }
+                    if (mVal > 0 && mVal < 600) { totalTime += mVal }
                 }
             }
 
-            // D. VALIDAÇÃO
+            // D. VALIDAÇÃO E ANTI-DUPLICIDADE
             val isValidReading = (bestPrice > 0.0) && ((totalDist > 0.0) || (totalTime > 0.0))
             
-            sbLog.append("   RESULTADO: R$$bestPrice | D:$totalDist ($distCount) | T:$totalTime ($timeCount)\n")
-            saveLog(sbLog.toString())
-
             if (isValidReading) {
-                // Se tempo for 0, tenta 1.0, mas isso é sinal de que o regex falhou.
+                // --- NOVA LÓGICA: Verifica se é a mesma leitura anterior ---
+                val currentReading = RideData(bestPrice, totalDist, totalTime)
+                
+                if (lastRideData != null) {
+                    if (lastRideData == currentReading) {
+                        Logger.log("FILTER", "Leitura duplicada ignorada: R$$bestPrice")
+                        return // <--- SAI AQUI SE FOR IGUAL
+                    }
+                }
+                
+                // Se for diferente, atualiza o último e exibe
+                lastRideData = currentReading
+                // -----------------------------------------------------------
+
                 val safeDist = if (totalDist == 0.0) 0.1 else totalDist
                 val safeTime = if (totalTime == 0.0) 1.0 else totalTime 
 
                 val valPerKm = bestPrice / safeDist
                 val valPerHour = (bestPrice / safeTime) * 60.0
                 
-                Logger.log("CALC", "Calculando: R$$bestPrice / ${safeDist}km = ${valPerKm}/km | ($bestPrice / $safeTime) * 60 = ${valPerHour}/h")
                 val resultStyle = if (valPerKm >= goodKm && valPerHour >= goodHour) {
                     Triple(Color.parseColor("#4ADE80"), "ÓTIMA 🚀", "#334ADE80")
                 } else if (valPerKm <= badKm && valPerHour <= badHour) {
@@ -332,14 +290,9 @@ class OcrService : Service() {
                 showCard(bestPrice, totalDist, totalTime, valPerKm, valPerHour, finalColor, finalMsg, bgDica, detectedApp)
             }
 
-        } catch (e: Exception) { 
-            e.printStackTrace()
-            saveLog("ERRO FATAL: ${e.message}")
-        }
+        } catch (e: Exception) { e.printStackTrace() }
     }
 
-    // --- UI METHODS ---
-    
     private fun showCard(price: Double, dist: Double, time: Double, valKm: Double, valHora: Double, color: Int, msg: String, bgDica: Drawable, detectedApp: String) {
         Handler(Looper.getMainLooper()).post {
             autoHideHandler.removeCallbacks(autoHideRunnable)
@@ -372,7 +325,15 @@ class OcrService : Service() {
         }
     }
     
-    private fun hideCard() { Handler(Looper.getMainLooper()).post { autoHideHandler.removeCallbacks(autoHideRunnable); infoCardView?.visibility = View.GONE; if (isMonitoring) bubbleView?.visibility = View.VISIBLE } }
+    private fun hideCard() { 
+        Handler(Looper.getMainLooper()).post { 
+            autoHideHandler.removeCallbacks(autoHideRunnable)
+            infoCardView?.visibility = View.GONE
+            if (isMonitoring) bubbleView?.visibility = View.VISIBLE 
+            // Reseta a duplicidade após timeout para permitir ler de novo se necessário
+            lastRideData = null 
+        } 
+    }
     
     private fun createInfoCard() {
         val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)

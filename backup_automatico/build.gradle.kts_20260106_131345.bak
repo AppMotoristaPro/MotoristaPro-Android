@@ -1,7 +1,3 @@
-
-================================================================================
-ARQUIVO: app/build.gradle.kts
-================================================================================
 plugins {
     id("com.google.gms.google-services")
     id("com.android.application")
@@ -10,7 +6,17 @@ plugins {
 
 android {
     namespace = "com.motoristapro.android"
+    
     compileSdk = 34
+
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = false
+        checkReleaseBuilds = false
+        ignoreWarnings = true
+        quiet = true
+    }
+
     sourceSets {
         getByName("main") {
             manifest.srcFile("src/main/AndroidManifest.xml")
@@ -24,7 +30,7 @@ android {
         applicationId = "com.motoristapro.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 6
+        versionCode = 9
         versionName = "1.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -66,56 +72,3 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
-
-
-================================================================================
-ARQUIVO: app/google-services.json
-================================================================================
-{
-  "project_info": {
-    "project_number": "990151984574",
-    "project_id": "motoristapro-f9beb",
-    "storage_bucket": "motoristapro-f9beb.firebasestorage.app"
-  },
-  "client": [
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:990151984574:android:ee631e3ac0ad4acaa9a5ef",
-        "android_client_info": {
-          "package_name": "com.motoristapro.android"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "990151984574-9f3nag4a2q1ljhr6l3tr0mn9nrcd7tkb.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.motoristapro.android",
-            "certificate_hash": "44a44a0e119260ba6d60806e2f5f6197f01a2e26"
-          }
-        },
-        {
-          "client_id": "990151984574-ikb32477s4l825fekva236j6jd0d7mgp.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDKdUEBfIurmAlwmHhrzjpToxBvTNMShI0"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "990151984574-ikb32477s4l825fekva236j6jd0d7mgp.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    }
-  ],
-  "configuration_version": "1"
-}
-
