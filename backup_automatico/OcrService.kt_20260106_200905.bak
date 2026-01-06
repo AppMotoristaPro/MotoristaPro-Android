@@ -124,17 +124,9 @@ class OcrService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(textReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
-            if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(textReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
             registerReceiver(textReceiver, filter)
         }
-        }
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD", Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
-        })
+        registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD"))
         
         try {
             startForegroundServiceCompat()
