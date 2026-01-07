@@ -1,5 +1,7 @@
 package com.motoristapro.android
 
+import android.view.accessibility.AccessibilityManager
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.Manifest
 import android.app.Dialog
 import android.app.DownloadManager
@@ -175,9 +177,14 @@ class MainActivity : ComponentActivity() {
                 fileUploadCallback = filePathCallback
 
                 val intent = fileChooserParams?.createIntent()
-                try {
-                    startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE)
-                } catch (e: Exception) {
+                if (intent != null) {
+                    try {
+                        startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE)
+                    } catch (e: Exception) {
+                        fileUploadCallback = null
+                        return false
+                    }
+                } else {
                     fileUploadCallback = null
                     return false
                 }
