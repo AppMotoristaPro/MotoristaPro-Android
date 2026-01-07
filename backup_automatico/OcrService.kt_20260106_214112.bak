@@ -118,34 +118,22 @@ class OcrService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        
         loadConfigs()
-        
-        val filterText = IntentFilter("ACTION_PROCESS_TEXT")
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(textReceiver, filterText, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(textReceiver, filterText)
-        }
-    
-        
-        val filterHide = IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(hideCardReceiver, filterHide, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(hideCardReceiver, filterHide)
-        }
-    
-    
         Logger.log("LIFECYCLE", "OcrService Iniciado. Configs carregadas: KM Bom=$goodKm, Hora Boa=$goodHour")
-         else {
+        val filter = IntentFilter("ACTION_PROCESS_TEXT")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(textReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(textReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
             registerReceiver(textReceiver, filter)
         }
         }
         if (Build.VERSION.SDK_INT >= 33) {
-            
+            registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD", Context.RECEIVER_EXPORTED)
         } else {
-            
+            registerReceiver(hideCardReceiver, IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
         })
         
         try {
@@ -461,25 +449,7 @@ class OcrService : Service() {
         } catch (e: Exception) {}
     }
     
-    private fun 
-        loadConfigs()
-        
-        val filterText = IntentFilter("ACTION_PROCESS_TEXT")
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(textReceiver, filterText, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(textReceiver, filterText)
-        }
-    
-        
-        val filterHide = IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(hideCardReceiver, filterHide, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(hideCardReceiver, filterHide)
-        }
-    
-     {
+    private fun loadConfigs() {
         Logger.log("LIFECYCLE", "OcrService Iniciado. Configs carregadas: KM Bom=$goodKm, Hora Boa=$goodHour")
         val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)
         goodKm = prefs.getFloat("good_km", 2.0f).toDouble(); badKm = prefs.getFloat("bad_km", 1.5f).toDouble(); goodHour = prefs.getFloat("good_hour", 60.0f).toDouble(); badHour = prefs.getFloat("bad_hour", 40.0f).toDouble()
