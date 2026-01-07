@@ -96,7 +96,7 @@ class OcrService : Service() {
                 infoCardView?.visibility = View.GONE
                 bubbleView?.visibility = View.GONE 
             }
-            // Reseta a última leitura ao esconder
+            // Reseta a última leitura ao esconder, permitindo ler a mesma corrida se ela reaparecer depois de um tempo
             lastRideData = null
         }
     }
@@ -118,24 +118,35 @@ class OcrService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        loadConfigs()
-        Logger.log("LIFECYCLE", "OcrService Iniciado.")
         
-        // --- CORREÇÃO ANDROID 14 (API 34) ---
-        // O Android 14 exige flag EXPORTED/NOT_EXPORTED para receivers dinâmicos
+        loadConfigs()
         
         val filterText = IntentFilter("ACTION_PROCESS_TEXT")
-        val filterHide = IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
-
         if (Build.VERSION.SDK_INT >= 33) {
-            // Context.RECEIVER_EXPORTED é exigido para receivers que recebem broadcasts do sistema ou de outros apps
-            // Como usamos broadcasts personalizados, precisamos definir
             registerReceiver(textReceiver, filterText, Context.RECEIVER_EXPORTED)
-            registerReceiver(hideCardReceiver, filterHide, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(textReceiver, filterText)
+        }
+    
+        
+        val filterHide = IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(hideCardReceiver, filterHide, Context.RECEIVER_EXPORTED)
+        } else {
             registerReceiver(hideCardReceiver, filterHide)
         }
+    
+    
+        Logger.log("LIFECYCLE", "OcrService Iniciado. Configs carregadas: KM Bom=$goodKm, Hora Boa=$goodHour")
+         else {
+            registerReceiver(textReceiver, filter)
+        }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            
+        } else {
+            
+        })
         
         try {
             startForegroundServiceCompat()
@@ -143,7 +154,7 @@ class OcrService : Service() {
             createMenu()
             createSettingsView()
             createInfoCard()
-            saveLog("--- ROBÔ INICIADO ---")
+            saveLog("--- ROBÔ V15 (ANTI-DUPLICIDADE) INICIADO ---")
         } catch (e: Exception) { e.printStackTrace() }
     }
 
@@ -198,6 +209,8 @@ class OcrService : Service() {
             val detectedApp = if (pkgName.contains("taxis99") || pkgName.contains("didi") || pkgName.contains("99")) "99" else "UBER"
             val ignoreTopLimit = screenHeight * 0.10
 
+            val sbLog = StringBuilder("ANÁLISE [$detectedApp]:\n")
+
             for (i in 0 until blocks.length()) {
                 val obj = blocks.getJSONObject(i)
                 val rawText = obj.getString("text")
@@ -213,8 +226,8 @@ class OcrService : Service() {
                 if (cleanText.contains("ma15 de 30") || cleanText.contains("mais de 30") || cleanText.contains("ma1s de 30")) continue
                 if (cleanText.contains("mapa de chamada") || cleanText.contains("chamadas") || cleanText == "30 m") continue
                 
-                // A. PREÇO - FIX REGEX STRING ESCAPES
-                val matPrice = Pattern.compile("(?:r\\$|rs)\\s*([0-9]+(?:\\.[0-9]{2})?)").matcher(cleanText)
+                // A. PREÇO
+                val matPrice = Pattern.compile("(?:r$|rs)\\s*([0-9]+(?:\\.[0-9]{2})?)").matcher(cleanText)
                 if (matPrice.find()) {
                     val v = matPrice.group(1)?.toDoubleOrNull() ?: 0.0
                     if (v > 4.5) {
@@ -226,7 +239,6 @@ class OcrService : Service() {
                     }
                 }
                 if (bestPrice == 0.0 && h > 80) {
-                     // FIX REGEX
                      val matPrice2 = Pattern.compile("^([0-9]+(?:\\.[0-9]{2}))$").matcher(cleanText.trim())
                      if (matPrice2.find()) {
                          val v = matPrice2.group(1)?.toDoubleOrNull() ?: 0.0
@@ -234,7 +246,7 @@ class OcrService : Service() {
                      }
                 }
 
-                // B. DISTÂNCIA - FIX REGEX
+                // B. DISTÂNCIA
                 val matDist = Pattern.compile("\\(?([0-9]+(?:\\.[0-9]+)?)\\s*(km|m)\\)?").matcher(cleanText)
                 while (matDist.find()) {
                     val valStr = matDist.group(1) ?: "0"
@@ -244,7 +256,7 @@ class OcrService : Service() {
                     if (value > 0.1 && value < 300.0) { totalDist += value }
                 }
 
-                // C. TEMPO - FIX REGEX
+                // C. TEMPO
                 var textForTime = cleanText.replace(Regex("\\d{1,2}:\\d{2}"), " ")
                 val matHour = Pattern.compile("(\\d+)\\s*(?:h|hr|hrs|hora|horas)\\b")
                 val mHour = matHour.matcher(textForTime)
@@ -449,7 +461,25 @@ class OcrService : Service() {
         } catch (e: Exception) {}
     }
     
-    private fun loadConfigs() {
+    private fun 
+        loadConfigs()
+        
+        val filterText = IntentFilter("ACTION_PROCESS_TEXT")
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(textReceiver, filterText, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(textReceiver, filterText)
+        }
+    
+        
+        val filterHide = IntentFilter("com.motoristapro.ACTION_HIDE_CARD")
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(hideCardReceiver, filterHide, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(hideCardReceiver, filterHide)
+        }
+    
+     {
         Logger.log("LIFECYCLE", "OcrService Iniciado. Configs carregadas: KM Bom=$goodKm, Hora Boa=$goodHour")
         val prefs = getSharedPreferences("OCR_PREFS", Context.MODE_PRIVATE)
         goodKm = prefs.getFloat("good_km", 2.0f).toDouble(); badKm = prefs.getFloat("bad_km", 1.5f).toDouble(); goodHour = prefs.getFloat("good_hour", 60.0f).toDouble(); badHour = prefs.getFloat("bad_hour", 40.0f).toDouble()

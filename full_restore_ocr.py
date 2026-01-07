@@ -1,4 +1,27 @@
-package com.motoristapro.android
+import os
+import shutil
+import subprocess
+import re
+from datetime import datetime
+
+# ==============================================================================
+# CONFIGURAÇÕES
+# ==============================================================================
+PROJETO = "MotoristaPro-Android"
+ARQUIVO_ALVO = "app/src/main/java/com/motoristapro/android/OcrService.kt"
+ARQUIVO_GRADLE = "app/build.gradle.kts"
+DIRETORIO_BACKUP = "backup_automatico"
+
+# ==============================================================================
+# CÓDIGO FONTE LIMPO E CORRIGIDO (OCR SERVICE)
+# ==============================================================================
+# Este código inclui:
+# 1. Imports corretos (Build, Context, IntentFilter)
+# 2. Correção de segurança Android 14 (RECEIVER_EXPORTED)
+# 3. Lógica original intacta
+# ==============================================================================
+
+CODIGO_OCR_COMPLETO = r"""package com.motoristapro.android
 
 import android.app.Service
 import android.content.BroadcastReceiver
@@ -466,3 +489,102 @@ class OcrService : Service() {
         } catch (e: Exception) {}
     }
 }
+"""
+
+# ==============================================================================
+# FUNÇÕES AUXILIARES
+# ==============================================================================
+
+def log(msg, cor="36"): # 36 = Cyan
+    print(f"\033[{cor}m[{PROJETO}] {msg}\033[0m")
+
+def criar_backup(arquivo):
+    if not os.path.exists(DIRETORIO_BACKUP):
+        os.makedirs(DIRETORIO_BACKUP)
+    
+    if os.path.exists(arquivo):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nome_orig = os.path.basename(arquivo)
+        destino = os.path.join(DIRETORIO_BACKUP, f"{nome_orig}_{timestamp}.bak")
+        shutil.copy2(arquivo, destino)
+        log(f"Backup salvo: {destino}")
+
+def git_push(msg):
+    try:
+        log("Executando Git Push...", "33")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", msg], check=True)
+        subprocess.run(["git", "push"], check=True)
+        log("Git Push Concluído.", "32")
+    except:
+        log("Erro no Git Push.", "31")
+
+def atualizar_versao():
+    """Incrementa versionCode"""
+    if not os.path.exists(ARQUIVO_GRADLE): return None
+
+    with open(ARQUIVO_GRADLE, 'r', encoding='utf-8') as f:
+        conteudo = f.read()
+
+    match_code = re.search(r'(versionCode\s*=\s*)(\d+)', conteudo)
+    novo_code = 0
+    if match_code:
+        novo_code = int(match_code.group(2)) + 1
+        conteudo = re.sub(r'(versionCode\s*=\s*)(\d+)', fr'\g<1>{novo_code}', conteudo)
+    
+    match_name = re.search(r'(versionName\s*=\s*")([^"]+)(")', conteudo)
+    if match_name:
+        try:
+            parts = match_name.group(2).split('.')
+            parts[-1] = str(int(parts[-1]) + 1)
+            new_name = ".".join(parts)
+            conteudo = re.sub(r'(versionName\s*=\s*")([^"]+)(")', fr'\g<1>{new_name}\g<3>', conteudo)
+        except:
+            pass
+
+    with open(ARQUIVO_GRADLE, 'w', encoding='utf-8') as f:
+        f.write(conteudo)
+        
+    return novo_code
+
+# ==============================================================================
+# RESTAURAÇÃO TOTAL
+# ==============================================================================
+
+def restaurar_arquivo_ocr():
+    # 1. Faz backup do arquivo atual (mesmo que quebrado)
+    criar_backup(ARQUIVO_ALVO)
+    
+    # 2. Sobrescreve com o código limpo
+    try:
+        with open(ARQUIVO_ALVO, 'w', encoding='utf-8') as f:
+            f.write(CODIGO_OCR_COMPLETO)
+        log(f"Arquivo OcrService.kt restaurado com sucesso! (Correção Android 14 aplicada)", "32")
+        return True
+    except Exception as e:
+        log(f"Erro ao salvar arquivo: {e}", "31")
+        return False
+
+# ==============================================================================
+# EXECUÇÃO
+# ==============================================================================
+
+if __name__ == "__main__":
+    print("-" * 50)
+    log("Iniciando Restauração Total do OcrService...", "36")
+    
+    if restaurar_arquivo_ocr():
+        novo_code = atualizar_versao()
+        if novo_code:
+            git_push(f"Full Restore OcrService + Fix Android 14 - v{novo_code}")
+        
+    # Auto-destruição
+    try:
+        os.remove(__file__)
+        log("Script removido.", "32")
+    except:
+        pass
+        
+    print("-" * 50)
+
+
