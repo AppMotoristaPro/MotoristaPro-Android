@@ -1,4 +1,24 @@
-package com.motoristapro.android
+import os
+import shutil
+
+# ==============================================================================
+# CONFIGURAÇÕES
+# ==============================================================================
+PROJETO = "MotoristaPro-Android"
+DIR_MAIN = "app/src/main/java/com/motoristapro/android"
+FILE_MAIN = os.path.join(DIR_MAIN, "MainActivity.kt")
+FILE_MANIFEST = "app/src/main/AndroidManifest.xml"
+
+# ==============================================================================
+# CÓDIGO ATUALIZADO: MainActivity.kt
+# ==============================================================================
+# Adicionamos:
+# 1. Variável 'fileUploadCallback' para gerenciar o seletor de arquivos.
+# 2. Método 'onShowFileChooser' no WebChromeClient.
+# 3. Método 'onActivityResult' para receber o arquivo selecionado.
+# 4. Método 'shouldOverrideUrlLoading' no WebViewClient para abrir WhatsApp.
+
+MAIN_ACTIVITY_CONTENT = r"""package com.motoristapro.android
 
 import android.Manifest
 import android.app.Dialog
@@ -352,3 +372,55 @@ class MainActivity : ComponentActivity() {
 
     override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }
+"""
+
+# ==============================================================================
+# FUNÇÕES
+# ==============================================================================
+
+def log(msg): print(f"\033[36m[{PROJETO}] {msg}\033[0m")
+
+def atualizar_manifest():
+    if not os.path.exists(FILE_MANIFEST): return
+    with open(FILE_MANIFEST, "r", encoding="utf-8") as f: content = f.read()
+    
+    # Adicionar permissão de visibilidade do WhatsApp
+    if '<package android:name="com.whatsapp" />' not in content:
+        # Insere dentro da tag <queries>
+        content = content.replace('</queries>', '    <package android:name="com.whatsapp" />\n        <package android:name="com.whatsapp.w4b" />\n    </queries>')
+        with open(FILE_MANIFEST, "w", encoding="utf-8") as f: f.write(content)
+        log("AndroidManifest.xml atualizado (Queries do WhatsApp).")
+
+def incrementar_versao():
+    import re
+    arq_gradle = "app/build.gradle.kts"
+    if not os.path.exists(arq_gradle): return
+    with open(arq_gradle, "r", encoding="utf-8") as f: content = f.read()
+    match = re.search(r'(versionCode\s*=\s*)(\d+)', content)
+    if match:
+        new_ver = int(match.group(2)) + 1
+        content = re.sub(r'(versionCode\s*=\s*)(\d+)', fr'\g<1>{new_ver}', content)
+        with open(arq_gradle, "w", encoding="utf-8") as f: f.write(content)
+        log(f"Versão incrementada para {new_ver}")
+        return new_ver
+    return 0
+
+def aplicar():
+    # 1. Substituir Main Activity
+    with open(FILE_MAIN, "w", encoding="utf-8") as f: f.write(MAIN_ACTIVITY_CONTENT)
+    log("MainActivity.kt atualizada com suporte a Upload e WhatsApp.")
+
+    # 2. Atualizar Manifest
+    atualizar_manifest()
+
+    # 3. Git e Versão
+    ver = incrementar_versao()
+    os.system("git add .")
+    os.system(f'git commit -m "Feat: Fix Upload de Arquivos e Links WhatsApp - v{ver}"')
+    os.system("git push")
+    log("Git Push realizado.")
+
+if __name__ == "__main__":
+    aplicar()
+
+

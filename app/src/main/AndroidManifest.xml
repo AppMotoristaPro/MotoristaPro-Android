@@ -30,6 +30,8 @@
         
         <!-- Indrive (Opcional, mas recomendado para compatibilidade futura) -->
         <package android:name="sinet.startup.inDriver" />
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
     </queries>
 
     <application
