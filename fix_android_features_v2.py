@@ -1,4 +1,31 @@
-package com.motoristapro.android
+import os
+import shutil
+import subprocess
+
+# ==============================================================================
+# CONFIGURAÇÕES
+# ==============================================================================
+PROJETO = "MotoristaPro-Android"
+DIR_MAIN = "app/src/main/java/com/motoristapro/android"
+FILE_MAIN = os.path.join(DIR_MAIN, "MainActivity.kt")
+FILE_MANIFEST = "app/src/main/AndroidManifest.xml"
+DIR_XML = "app/src/main/res/xml"
+FILE_PROVIDER = os.path.join(DIR_XML, "provider_paths.xml")
+ARQUIVO_GRADLE = "app/build.gradle.kts"
+
+# ==============================================================================
+# CONTEÚDOS
+# ==============================================================================
+
+XML_PROVIDER = """<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="cache_images" path="images/" />
+    <external-path name="external_files" path="." />
+</paths>
+"""
+
+# MainActivity Completa e Corrigida
+MAIN_ACTIVITY = r"""package com.motoristapro.android
 
 import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -299,3 +326,67 @@ class MainActivity : ComponentActivity() {
 
     override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 }
+"""
+
+# ==============================================================================
+# FUNÇÕES
+# ==============================================================================
+
+def log(msg, cor="36"): print(f"\033[{cor}m[{PROJETO}] {msg}\033[0m")
+
+def incrementar_versao():
+    import re
+    if not os.path.exists(ARQUIVO_GRADLE): return
+    
+    with open(ARQUIVO_GRADLE, "r", encoding="utf-8") as f: content = f.read()
+    
+    match = re.search(r'(versionCode\s*=\s*)(\d+)', content)
+    if match:
+        new_ver = int(match.group(2)) + 1
+        content = re.sub(r'(versionCode\s*=\s*)(\d+)', fr'\g<1>{new_ver}', content)
+        
+        with open(ARQUIVO_GRADLE, "w", encoding="utf-8") as f: f.write(content)
+        log(f"Versão incrementada para {new_ver}", "32")
+        return new_ver
+    return 0
+
+def aplicar_correcoes():
+    # 1. FileProvider XML
+    if not os.path.exists(DIR_XML): os.makedirs(DIR_XML)
+    with open(FILE_PROVIDER, "w", encoding="utf-8") as f: f.write(XML_PROVIDER)
+    log("provider_paths.xml criado/atualizado.")
+
+    # 2. Manifest
+    with open(FILE_MANIFEST, "r", encoding="utf-8") as f: manifest = f.read()
+    
+    if "androidx.core.content.FileProvider" not in manifest:
+        provider_block = """
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+    """
+        manifest = manifest.replace("</application>", f"{provider_block}\n    </application>")
+        with open(FILE_MANIFEST, "w", encoding="utf-8") as f: f.write(manifest)
+        log("AndroidManifest.xml atualizado.")
+
+    # 3. MainActivity
+    with open(FILE_MAIN, "w", encoding="utf-8") as f: f.write(MAIN_ACTIVITY)
+    log("MainActivity.kt substituída (Corrigida).")
+
+    # 4. Versão e Git
+    new_ver = incrementar_versao()
+    os.system("git add .")
+    os.system(f'git commit -m "Feat: Suporte Nativo a Downloads/Print/Share - v{new_ver}"')
+    os.system("git push")
+    log("Git Push realizado.")
+
+if __name__ == "__main__":
+    aplicar_correcoes()
+
+
