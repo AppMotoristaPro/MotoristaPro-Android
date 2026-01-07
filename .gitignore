@@ -8,3 +8,20 @@
 .externalNativeBuild
 .cxx
 local.properties
+# --- Backups Automaticos (Scripts Python) ---
+backup_automatico/
+backup_automatico_site/
+backup_automatico_android/
+*.bak
+*.tmp
+# --- Python Cache ---
+__pycache__/
+*.pyc
+# --- Arquivos de Sistema/IDE ---
+.idea/
+.vscode/
+# --- Logs e Builds (Android) ---
+build/
+captures/
+.externalNativeBuild/
+.cxx/
