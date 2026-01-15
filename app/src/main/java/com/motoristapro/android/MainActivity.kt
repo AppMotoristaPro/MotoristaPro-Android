@@ -287,20 +287,21 @@ class MainActivity : ComponentActivity() {
     private fun checkAndRequestPermissions() {
         if (!Settings.canDrawOverlays(this)) {
             showProfessionalDialog(
-                title = "Permissão de Sobreposição",
-                message = "O Motorista Pro precisa exibir informações sobrepostas.",
+                title = "Calculadora Flutuante",
+                message = "Para que o Motorista Pro mostre o lucro da corrida em tempo real *em cima* do app da Uber ou 99, precisamos da permissão de sobreposição.\n\nIsso permite que o card informativo apareça automaticamente sem você precisar sair do aplicativo de viagens.",
                 iconRes = R.drawable.ic_permission_layers,
                 isAccessibility = false
             ) {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                startActivity(intent)
             }
             return
         }
 
         if (!isAccessibilityServiceEnabled()) {
             showProfessionalDialog(
-                title = "Serviço de Acessibilidade",
-                message = "Necessário para leitura de tela.",
+                title = "Leitura Automática",
+                message = "Para capturar o preço e a quilometragem da tela automaticamente, o Motorista Pro usa a tecnologia de Acessibilidade do Android.\n\n🔒 **Privacidade Garantida:**\nO robô lê APENAS a tela de oferta de viagens. Nenhuma conversa, senha ou dado bancário é acessado ou salvo. O serviço só age quando detecta o app da Uber ou 99 aberto.",
                 iconRes = R.drawable.ic_permission_eye,
                 isAccessibility = true
             ) {
