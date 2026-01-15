@@ -215,8 +215,8 @@ class OcrService : Service() {
             val detectedApp = if (pkgName.contains("taxis99") || pkgName.contains("didi") || pkgName.contains("99")) "99" else "UBER"
             val ignoreTopLimit = screenHeight * 0.10
 
-            // Log de início de análise
-            // saveLog("Analisando tela ($detectedApp)...")
+            // LOG DE INÍCIO DE CICLO (Para separar as leituras)
+            saveLog("\n=== NOVA LEITURA ($detectedApp) ===")
 
             for (i in 0 until blocks.length()) {
                 val obj = blocks.getJSONObject(i)
@@ -228,17 +228,23 @@ class OcrService : Service() {
 
                 val cleanText = sanitizeOcrErrors(rawText)
 
-                if (cleanText.contains("ganhe r$") || cleanText.contains("a mais por") || cleanText.contains("viagens e ganhe") || cleanText.contains("meta de ganhos")) continue
-                if (cleanText.contains("r$/km") || cleanText.contains("r$/h") || cleanText.contains("5h0wr00m") || cleanText.contains("showroom")) continue
-                if (cleanText.contains("ma15 de 30") || cleanText.contains("mais de 30") || cleanText.contains("ma1s de 30")) continue
-                if (cleanText.contains("mapa de chamada") || cleanText.contains("chamadas") || cleanText == "30 m") continue
-                
-                // --- CORREÇÃO DE REGEX (Double Backslash para Kotlin Strings) ---
+                // Filtros de Ignorar (Logs opcionais para não poluir muito, mas útil saber o que ignorou)
+                if (cleanText.contains("ganhe r$") || cleanText.contains("meta")) {
+                    // saveLog("IGNORADO (Filtro): $cleanText")
+                    continue
+                }
+
+                // LOG DO TEXTO PROCESSADO (CRUCIAL PARA DEBUG)
+                // Se encontrar números, loga para vermos como o OCR está lendo
+                if (cleanText.any { it.isDigit() }) {
+                    saveLog("LIDO: '$rawText' -> LIMPO: '$cleanText' (h=$h)")
+                }
                 
                 // A. PREÇO
                 val matPrice = Pattern.compile("(?:r\\$|rs)\\s*([0-9]+(?:\\.[0-9]{2})?)").matcher(cleanText)
                 if (matPrice.find()) {
                     val v = matPrice.group(1)?.toDoubleOrNull() ?: 0.0
+                    saveLog("  -> CANDIDATO PREÇO: R$ $v (Fonte: $h)")
                     if (v > 4.5) {
                         if (h > maxPriceFontSize) {
                             maxPriceFontSize = h; bestPrice = v
@@ -247,11 +253,15 @@ class OcrService : Service() {
                         }
                     }
                 }
+                // Fallback Preço (Numero isolado grande)
                 if (bestPrice == 0.0 && h > 80) {
                      val matPrice2 = Pattern.compile("^([0-9]+(?:\\.[0-9]{2}))$").matcher(cleanText.trim())
                      if (matPrice2.find()) {
                          val v = matPrice2.group(1)?.toDoubleOrNull() ?: 0.0
-                         if (v > 5.0 && v < 500.0) { bestPrice = v; maxPriceFontSize = h }
+                         if (v > 5.0 && v < 500.0) { 
+                             bestPrice = v; maxPriceFontSize = h 
+                             saveLog("  -> CANDIDATO PREÇO (ISOLADO): R$ $v")
+                         }
                      }
                 }
 
@@ -262,7 +272,10 @@ class OcrService : Service() {
                     val unit = matDist.group(2) ?: "km"
                     var value = valStr.toDoubleOrNull() ?: 0.0
                     if (unit == "m") value /= 1000.0
-                    if (value > 0.1 && value < 300.0) { totalDist += value }
+                    if (value > 0.1 && value < 300.0) { 
+                        totalDist += value 
+                        saveLog("  -> DISTÂNCIA DETECTADA: $value km (Original: $valStr $unit)")
+                    }
                 }
 
                 // C. TEMPO
@@ -271,56 +284,61 @@ class OcrService : Service() {
                 val mHour = matHour.matcher(textForTime)
                 while (mHour.find()) {
                     val hVal = mHour.group(1)?.toDoubleOrNull() ?: 0.0
-                    if (hVal > 0 && hVal < 24) { totalTime += (hVal * 60) }
+                    if (hVal > 0 && hVal < 24) { 
+                        totalTime += (hVal * 60)
+                        saveLog("  -> TEMPO (HORAS): $hVal h")
+                    }
                 }
                 val matMin = Pattern.compile("(\\d+)\\s*(?:min|minutos|m1n|m1ns|mins)(?!in|etro|l|e|a|o)")
                 val mMin = matMin.matcher(textForTime)
                 while (mMin.find()) {
                     val mVal = mMin.group(1)?.toDoubleOrNull() ?: 0.0
-                    if (mVal > 0 && mVal < 600) { totalTime += mVal }
+                    if (mVal > 0 && mVal < 600) { 
+                        totalTime += mVal
+                        saveLog("  -> TEMPO (MIN): $mVal min")
+                    }
                 }
             }
 
-            // D. VALIDAÇÃO E ANTI-DUPLICIDADE
-            val isValidReading = (bestPrice > 0.0) && ((totalDist > 0.0) || (totalTime > 0.0))
-            
-            if (isValidReading) {
-                val currentReading = RideData(bestPrice, totalDist, totalTime)
+            // D. VALIDAÇÃO E LOG FINAL
+            if (bestPrice > 0.0) {
+                val status = if ((totalDist > 0.0) || (totalTime > 0.0)) "DADOS COMPLETOS" else "DADOS PARCIAIS"
+                saveLog("CONCLUSÃO: $status | R$ $bestPrice | ${"%.1f".format(totalDist)} km | ${"%.0f".format(totalTime)} min")
                 
-                if (lastRideData != null) {
-                    if (lastRideData == currentReading) {
-                        return // Ignora duplicata
+                if (status == "DADOS COMPLETOS") {
+                    val currentReading = RideData(bestPrice, totalDist, totalTime)
+                    if (lastRideData != null && lastRideData == currentReading) {
+                        saveLog("AÇÃO: Ignorado (Duplicidade)")
+                        return
                     }
-                }
-                
-                lastRideData = currentReading
+                    lastRideData = currentReading
 
-                val safeDist = if (totalDist == 0.0) 0.1 else totalDist
-                val safeTime = if (totalTime == 0.0) 1.0 else totalTime 
-
-                val valPerKm = bestPrice / safeDist
-                val valPerHour = (bestPrice / safeTime) * 60.0
-                
-                // Loga a leitura válida no arquivo
-                saveLog("READ OK [$detectedApp] R$ $bestPrice | $totalDist km | $totalTime min -> R$/KM: ${"%.2f".format(valPerKm)}")
-                
-                val resultStyle = if (valPerKm >= goodKm && valPerHour >= goodHour) {
-                    Triple(Color.parseColor("#4ADE80"), "ÓTIMA 🚀", "#334ADE80")
-                } else if (valPerKm <= badKm && valPerHour <= badHour) {
-                    Triple(Color.parseColor("#F87171"), "RECUSAR 🛑", "#33F87171")
-                } else {
-                    Triple(Color.parseColor("#FACC15"), "ANALISAR 🤔", "#33FACC15")
+                    val safeDist = if (totalDist == 0.0) 0.1 else totalDist
+                    val safeTime = if (totalTime == 0.0) 1.0 else totalTime 
+                    val valPerKm = bestPrice / safeDist
+                    val valPerHour = (bestPrice / safeTime) * 60.0
+                    
+                    // Lógica de Cores
+                    val resultStyle = if (valPerKm >= goodKm && valPerHour >= goodHour) {
+                        Triple(Color.parseColor("#4ADE80"), "ÓTIMA 🚀", "#334ADE80")
+                    } else if (valPerKm <= badKm && valPerHour <= badHour) {
+                        Triple(Color.parseColor("#F87171"), "RECUSAR 🛑", "#33F87171")
+                    } else {
+                        Triple(Color.parseColor("#FACC15"), "ANALISAR 🤔", "#33FACC15")
+                    }
+                    
+                    val (finalColor, finalMsg, finalAlpha) = resultStyle
+                    val bgDica = GradientDrawable().apply { cornerRadius = 15f; setColor(Color.parseColor(finalAlpha)) }
+                    
+                    showCard(bestPrice, totalDist, totalTime, valPerKm, valPerHour, finalColor, finalMsg, bgDica, detectedApp)
                 }
-                
-                val (finalColor, finalMsg, finalAlpha) = resultStyle
-                val bgDica = GradientDrawable().apply { cornerRadius = 15f; setColor(Color.parseColor(finalAlpha)) }
-                
-                showCard(bestPrice, totalDist, totalTime, valPerKm, valPerHour, finalColor, finalMsg, bgDica, detectedApp)
+            } else {
+                // saveLog("CONCLUSÃO: Nenhum preço identificado.")
             }
 
         } catch (e: Exception) { 
             e.printStackTrace()
-            saveLog("ERRO ANALISE: ${e.message}")
+            saveLog("ERRO FATAL NA ANÁLISE: ${e.message}")
         }
     }
 
