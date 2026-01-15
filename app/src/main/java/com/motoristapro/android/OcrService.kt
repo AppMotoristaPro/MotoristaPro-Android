@@ -209,14 +209,17 @@ class OcrService : Service() {
             val blocks = JSONArray(jsonString)
             var bestPrice = 0.0
             var maxPriceFontSize = 0
-            var totalDist = 0.0
-            var totalTime = 0.0
+            
+            // Variáveis para evitar duplicidade de soma no mesmo frame
+            var pickupDist = 0.0
+            var tripDist = 0.0
+            var pickupTime = 0.0
+            var tripTime = 0.0
             
             val detectedApp = if (pkgName.contains("taxis99") || pkgName.contains("didi") || pkgName.contains("99")) "99" else "UBER"
             val ignoreTopLimit = screenHeight * 0.10
 
-            // LOG DE INÍCIO DE CICLO (Para separar as leituras)
-            saveLog("\n=== NOVA LEITURA ($detectedApp) ===")
+            // saveLog("\n=== NOVA LEITURA ($detectedApp) ===")
 
             for (i in 0 until blocks.length()) {
                 val obj = blocks.getJSONObject(i)
@@ -228,24 +231,22 @@ class OcrService : Service() {
 
                 val cleanText = sanitizeOcrErrors(rawText)
 
-                // Filtros de Ignorar (Logs opcionais para não poluir muito, mas útil saber o que ignorou)
-                if (cleanText.contains("ganhe r$") || cleanText.contains("meta")) {
-                    // saveLog("IGNORADO (Filtro): $cleanText")
-                    continue
-                }
-
-                // LOG DO TEXTO PROCESSADO (CRUCIAL PARA DEBUG)
-                // Se encontrar números, loga para vermos como o OCR está lendo
-                if (cleanText.any { it.isDigit() }) {
-                    saveLog("LIDO: '$rawText' -> LIMPO: '$cleanText' (h=$h)")
-                }
+                // --- FILTROS DE SEGURANÇA (ANTI-ESPELHO) ---
+                // Ignora textos que parecem ser logs do próprio sistema ou notificações
+                if (cleanText.startsWith("[") && cleanText.contains("]")) continue // Ignora timestamp de log
+                if (cleanText.contains("lido:") || cleanText.contains("limpo:") || cleanText.contains("conclusão:")) continue
+                if (cleanText.contains("candidato") || cleanText.contains("detectada:")) continue
+                if (cleanText.contains("motorista pro") || cleanText.contains("configurações")) continue
                 
-                // A. PREÇO
+                // Filtros de palavras irrelevantes dos apps
+                if (cleanText.contains("ganhe r$") || cleanText.contains("meta de ganhos")) continue
+                if (cleanText.contains("r$/km") || cleanText.contains("r$/h")) continue // Evita ler o card flutuante antigo
+
+                // A. PREÇO (Lógica Mantida)
                 val matPrice = Pattern.compile("(?:r\\$|rs)\\s*([0-9]+(?:\\.[0-9]{2})?)").matcher(cleanText)
                 if (matPrice.find()) {
                     val v = matPrice.group(1)?.toDoubleOrNull() ?: 0.0
-                    saveLog("  -> CANDIDATO PREÇO: R$ $v (Fonte: $h)")
-                    if (v > 4.5) {
+                    if (v > 4.5 && v < 2000.0) { // Preço máximo razoável
                         if (h > maxPriceFontSize) {
                             maxPriceFontSize = h; bestPrice = v
                         } else if (h == maxPriceFontSize && v > bestPrice) {
@@ -254,61 +255,83 @@ class OcrService : Service() {
                     }
                 }
                 // Fallback Preço (Numero isolado grande)
-                if (bestPrice == 0.0 && h > 80) {
+                if (bestPrice == 0.0 && h > 75) { // Reduzi um pouco a altura mínima
                      val matPrice2 = Pattern.compile("^([0-9]+(?:\\.[0-9]{2}))$").matcher(cleanText.trim())
                      if (matPrice2.find()) {
                          val v = matPrice2.group(1)?.toDoubleOrNull() ?: 0.0
-                         if (v > 5.0 && v < 500.0) { 
+                         if (v > 5.0 && v < 600.0) { 
                              bestPrice = v; maxPriceFontSize = h 
-                             saveLog("  -> CANDIDATO PREÇO (ISOLADO): R$ $v")
                          }
                      }
                 }
 
-                // B. DISTÂNCIA
+                // B. DISTÂNCIA (Lógica Refinada: Separa Pickup de Trip)
+                // O padrão da Uber geralmente coloca a distância de busca antes (Y menor) ou depois. 
+                // Mas para simplificar, vamos somar apenas valores razoáveis e não repetidos.
                 val matDist = Pattern.compile("\\(?([0-9]+(?:\\.[0-9]+)?)\\s*(km|m)\\)?").matcher(cleanText)
                 while (matDist.find()) {
                     val valStr = matDist.group(1) ?: "0"
                     val unit = matDist.group(2) ?: "km"
                     var value = valStr.toDoubleOrNull() ?: 0.0
                     if (unit == "m") value /= 1000.0
-                    if (value > 0.1 && value < 300.0) { 
-                        totalDist += value 
-                        saveLog("  -> DISTÂNCIA DETECTADA: $value km (Original: $valStr $unit)")
+                    
+                    if (value > 0.0 && value < 800.0) { // Limite de 800km para evitar erros bizarros
+                        // Se for a primeira distância encontrada, assume busca ou viagem
+                        if (pickupDist == 0.0) pickupDist = value
+                        else if (tripDist == 0.0) tripDist = value
+                        else {
+                            // Se já tem 2 distâncias, pode ser um erro de leitura duplicada ou uma terceira parada
+                            // Vamos somar apenas se for diferente das anteriores para evitar ler a mesma linha 2x
+                            if (value != pickupDist && value != tripDist) {
+                                tripDist += value
+                            }
+                        }
+                        // saveLog("  -> DIST: $value km (Raw: $valStr $unit)")
                     }
                 }
 
                 // C. TEMPO
-                var textForTime = cleanText.replace(Regex("\\d{1,2}:\\d{2}"), " ")
+                var textForTime = cleanText.replace(Regex("\\d{1,2}:\\d{2}"), " ") // Remove horas tipo 12:30
+                
+                // Horas
                 val matHour = Pattern.compile("(\\d+)\\s*(?:h|hr|hrs|hora|horas)\\b")
                 val mHour = matHour.matcher(textForTime)
                 while (mHour.find()) {
                     val hVal = mHour.group(1)?.toDoubleOrNull() ?: 0.0
                     if (hVal > 0 && hVal < 24) { 
-                        totalTime += (hVal * 60)
-                        saveLog("  -> TEMPO (HORAS): $hVal h")
+                        if (pickupTime == 0.0) pickupTime = hVal * 60
+                        else tripTime += hVal * 60
                     }
                 }
+                
+                // Minutos
                 val matMin = Pattern.compile("(\\d+)\\s*(?:min|minutos|m1n|m1ns|mins)(?!in|etro|l|e|a|o)")
                 val mMin = matMin.matcher(textForTime)
                 while (mMin.find()) {
                     val mVal = mMin.group(1)?.toDoubleOrNull() ?: 0.0
                     if (mVal > 0 && mVal < 600) { 
-                        totalTime += mVal
-                        saveLog("  -> TEMPO (MIN): $mVal min")
+                        // Adiciona aos minutos (se já tiver horas no pickupTime, soma lá, senão tripTime)
+                        // Logica simplificada: Soma tudo no final, mas tenta evitar duplicatas exatas na mesma linha
+                        if (tripTime == 0.0 && pickupTime > 0) tripTime += mVal
+                        else if (pickupTime == 0.0) pickupTime = mVal
+                        else tripTime += mVal
                     }
                 }
             }
 
-            // D. VALIDAÇÃO E LOG FINAL
+            // D. CONSOLIDAÇÃO
+            val totalDist = pickupDist + tripDist
+            val totalTime = pickupTime + tripTime
+
+            // E. VALIDAÇÃO FINAL
             if (bestPrice > 0.0) {
-                val status = if ((totalDist > 0.0) || (totalTime > 0.0)) "DADOS COMPLETOS" else "DADOS PARCIAIS"
-                saveLog("CONCLUSÃO: $status | R$ $bestPrice | ${"%.1f".format(totalDist)} km | ${"%.0f".format(totalTime)} min")
+                // saveLog("PARCIAL: R$ $bestPrice | Dist: $pickupDist + $tripDist | Tempo: $pickupTime + $tripTime")
                 
-                if (status == "DADOS COMPLETOS") {
+                if ((totalDist > 0.0) || (totalTime > 0.0)) {
                     val currentReading = RideData(bestPrice, totalDist, totalTime)
+                    
+                    // Anti-Duplicidade de evento (mesma tela processada várias vezes)
                     if (lastRideData != null && lastRideData == currentReading) {
-                        saveLog("AÇÃO: Ignorado (Duplicidade)")
                         return
                     }
                     lastRideData = currentReading
@@ -318,7 +341,8 @@ class OcrService : Service() {
                     val valPerKm = bestPrice / safeDist
                     val valPerHour = (bestPrice / safeTime) * 60.0
                     
-                    // Lógica de Cores
+                    saveLog("SUCESSO: R$ $bestPrice | $totalDist km | $totalTime min")
+                    
                     val resultStyle = if (valPerKm >= goodKm && valPerHour >= goodHour) {
                         Triple(Color.parseColor("#4ADE80"), "ÓTIMA 🚀", "#334ADE80")
                     } else if (valPerKm <= badKm && valPerHour <= badHour) {
@@ -332,13 +356,11 @@ class OcrService : Service() {
                     
                     showCard(bestPrice, totalDist, totalTime, valPerKm, valPerHour, finalColor, finalMsg, bgDica, detectedApp)
                 }
-            } else {
-                // saveLog("CONCLUSÃO: Nenhum preço identificado.")
             }
 
         } catch (e: Exception) { 
             e.printStackTrace()
-            saveLog("ERRO FATAL NA ANÁLISE: ${e.message}")
+            // saveLog("ERRO: ${e.message}")
         }
     }
 
