@@ -1,0 +1,168 @@
+
+================================================================================
+ARQUIVO: app/src/main/res/layout/activity_main.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</FrameLayout>
+
+================================================================================
+ARQUIVO: app/src/main/res/layout/dialog_permission_edu.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minWidth="320dp"
+    android:orientation="vertical"
+    android:background="@drawable/bg_card_white"
+    android:padding="24dp">
+
+    <ImageView
+        android:id="@+id/dialog_icon"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_permission_layers"
+        android:layout_marginBottom="20dp"
+        android:background="@drawable/bg_circle_btn"
+        android:padding="16dp"
+        android:backgroundTint="#F0F9FF"/>
+
+    <TextView
+        android:id="@+id/dialog_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Permissão Necessária"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="#0F172A"
+        android:gravity="center"
+        android:layout_marginBottom="12dp"/>
+
+    <TextView
+        android:id="@+id/dialog_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Explicação detalhada aqui..."
+        android:textSize="15sp"
+        android:textColor="#64748B"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.4"
+        android:layout_marginBottom="28dp"/>
+
+    <!-- Botão Principal -->
+    <Button
+        android:id="@+id/btn_allow"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="PERMITIR AGORA"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_btn_gradient"
+        android:elevation="0dp"
+        android:stateListAnimator="@null"/>
+
+    <!-- Botão Cancelar -->
+    <TextView
+        android:id="@+id/btn_cancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Agora não"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#94A3B8"
+        android:gravity="center"
+        android:padding="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground"/>
+
+</LinearLayout>
+
+
+================================================================================
+ARQUIVO: app/src/main/res/layout/notification_timer.xml
+================================================================================
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <!-- Cronômetro e Título à Esquerda -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginEnd="8dp">
+
+        <TextView
+            android:id="@+id/notif_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cronômetro"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#000000"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
+        <Chronometer
+            android:id="@+id/notif_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textColor="#333333" />
+    </LinearLayout>
+
+    <!-- Botões à Direita -->
+    <!-- REMOVIDO: android:background="?android:attr/..." (Causava Crash) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- Toggle (Play/Pause) -->
+        <ImageView
+            android:id="@+id/btn_toggle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_timer_pause"
+            android:contentDescription="Pause/Resume"
+            android:scaleType="centerInside"
+            android:clickable="true"
+            android:padding="8dp" />
+
+        <Space
+            android:layout_width="12dp"
+            android:layout_height="wrap_content" />
+
+        <!-- Stop -->
+        <ImageView
+            android:id="@+id/btn_stop"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_timer_stop"
+            android:contentDescription="Stop"
+            android:scaleType="centerInside"
+            android:clickable="true"
+            android:padding="8dp" />
+    </LinearLayout>
+
+</LinearLayout>
+

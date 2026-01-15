@@ -1,0 +1,41 @@
+
+================================================================================
+ARQUIVO: build.gradle.kts
+================================================================================
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    id("com.google.gms.google-services") version "4.4.0" apply false
+    id("com.android.application") version "8.2.0" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+}
+
+
+================================================================================
+ARQUIVO: gradle.properties
+================================================================================
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1g
+android.useAndroidX=true
+android.enableJetifier=true
+
+================================================================================
+ARQUIVO: settings.gradle.kts
+================================================================================
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+rootProject.name = "MotoristaPro-Android"
+include(":app")
+
